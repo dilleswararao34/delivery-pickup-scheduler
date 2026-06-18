@@ -69,3 +69,8 @@ services:
         fromStack:
           name: sd-digitals-backend-api
           property: url
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
