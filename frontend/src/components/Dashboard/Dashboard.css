@@ -1,0 +1,241 @@
+/* ── Dashboard Layout ─────────────────────────────────────────────────────── */
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.dashboard__body {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Main left column — grid + intake stacked */
+.dashboard__left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard__grid-pane {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard__intake-pane {
+  flex-shrink: 0;
+  height: 300px;
+  overflow: hidden;
+}
+
+/* Right column — ops assistant full height */
+.dashboard__right {
+  width: 320px;
+  flex-shrink: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Stats bar below topbar ──────────────────────────────────────────────── */
+.dashboard__stats {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+  transition: var(--transition);
+  cursor: pointer;
+  user-select: none;
+}
+
+.stat-chip:hover {
+  border-color: var(--text-tertiary);
+  background: var(--bg-elevated);
+  transform: translateY(-1px);
+}
+
+.stat-chip:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.stat-chip--active {
+  background: var(--bg-elevated);
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue);
+}
+
+.stat-chip__icon {
+  font-size: 20px;
+}
+
+.stat-chip__label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: 1;
+}
+
+.stat-chip__value {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+.stat-chip--live  .stat-chip__value { color: var(--accent); }
+.stat-chip--warn  .stat-chip__value { color: var(--amber); }
+.stat-chip--alert .stat-chip__value { color: var(--red); }
+.stat-chip--ok    .stat-chip__value { color: var(--green); }
+
+/* ── Modals & Overlays ─────────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.modal-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  animation: fade-in 0.2s ease both;
+}
+
+.modal-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: var(--transition);
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.modal-footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ── Activity Audit Log Timeline ─────────────────────────────────────────── */
+.audit-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.audit-item {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  align-items: flex-start;
+  transition: var(--transition);
+}
+
+.audit-item:hover {
+  border-color: var(--border-active);
+  background: var(--bg-secondary);
+}
+
+.audit-icon {
+  font-size: var(--text-xl);
+  padding: var(--space-2);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.audit-details {
+  flex: 1;
+}
+
+.audit-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-1);
+}
+
+.audit-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.audit-desc {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+

@@ -1,0 +1,120 @@
+'use strict';
+
+require('dotenv').config();
+
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+
+const bookingsRouter  = require('./src/routes/bookings.routes');
+const equipmentRouter = require('./src/routes/equipment.routes');
+const authRouter      = require('./src/routes/auth.routes');
+const operationsRouter = require('./src/routes/operations.routes');
+const paymentsRouter   = require('./src/routes/payments.routes');
+const authMiddleware  = require('./src/middleware/auth.middleware');
+const errorHandler    = require('./src/middleware/errorHandler');
+
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// ─── Security ────────────────────────────────────────────────────────────────
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// ─── CORS ─────────────────────────────────────────────────────────────────────
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [process.env.FRONTEND_URL].filter(Boolean)
+  : [
+      process.env.FRONTEND_URL || 'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:5175',
+    ];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS policy: origin ${origin} not permitted`));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  exposedHeaders: ['X-Request-ID'],
+  credentials: true,
+}));
+
+// ─── Body Parsing ─────────────────────────────────────────────────────────────
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// ─── Request ID propagation ───────────────────────────────────────────────────
+app.use((req, res, next) => {
+  const requestId = req.headers['x-request-id'] || require('crypto').randomUUID();
+  req.requestId = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  next();
+});
+
+// ─── Health Check ─────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    data: { status: 'healthy', service: 'sd-digitals-scheduler-api', version: '1.0.0' },
+    meta: { timestamp: new Date().toISOString() },
+    error: null,
+  });
+});
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
+app.use('/api/v1/auth',      authRouter);                             // Public auth
+app.use('/api/v1/payments',  paymentsRouter);                         // Payments & webhooks
+app.use('/api/v1/bookings',  authMiddleware, bookingsRouter);         // JWT protected
+app.use('/api/v1/equipment', authMiddleware, equipmentRouter);        // JWT protected
+app.use('/api/v1',           authMiddleware, operationsRouter);       // JWT protected operations
+
+
+
+// ─── 404 Handler ─────────────────────────────────────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    data: null,
+    meta: { requestId: req.requestId, timestamp: new Date().toISOString(), pagination: null },
+    error: { code: 'NOT_FOUND', message: `Route ${req.method} ${req.path} not found`, fields: null },
+  });
+});
+
+// ─── Global Error Handler ─────────────────────────────────────────────────────
+app.use(errorHandler);
+
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
+app.listen(PORT, () => {
+  console.log(`\n┌─────────────────────────────────────────────────┐`);
+  console.log(`│  SD Digitals Scheduler API                      │`);
+  console.log(`│  Listening on http://localhost:${PORT}              │`);
+  console.log(`│  Environment: ${(process.env.NODE_ENV || 'development').padEnd(33)}│`);
+  console.log(`└─────────────────────────────────────────────────┘\n`);
+});
+
+// ─── Automated Background Scheduler ───────────────────────────────────────────
+const reportingService = require('./src/services/reporting.service');
+setTimeout(() => {
+  if (process.env.NODE_ENV !== 'test') {
+    reportingService.runDailyJobs()
+      .then(res => console.log('[scheduler] Initial background daily jobs finished:', JSON.stringify(res)))
+      .catch(err => console.error('[scheduler] Background daily jobs failed:', err.message));
+  }
+}, 5000); // Run once 5 seconds after boot
+
+setInterval(() => {
+  reportingService.runDailyJobs()
+    .then(res => console.log('[scheduler] Recurring background daily jobs finished:', JSON.stringify(res)))
+    .catch(err => console.error('[scheduler] Background daily jobs failed:', err.message));
+}, 24 * 60 * 60 * 1000); // Run every 24 hours
+
+module.exports = app;

@@ -1,0 +1,691 @@
+import React, { useState, useCallback, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import StatusBadge from '../LiveLogisticsGrid/StatusBadge.jsx';
+import { OperationsChronology } from './OperationsChronology.jsx';
+import { SkeletonFlyout } from '../shared/SkeletonLoader.jsx';
+import { useBookingDetail } from '../../hooks/useBookings.js';
+import { useStateMachine } from '../../hooks/useStateMachine.js';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { formatDate, formatDateTime, getDurationDays, formatCurrency } from '../../utils/dateFormat.js';
+import { flyoutSlide, backdropFade, buttonTap } from '../../utils/motionVariants.js';
+import apiClient from '../../services/apiClient.js';
+import './DeepViewFlyout.css';
+
+export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
+  const { booking, loading, error, refresh } = useBookingDetail(bookingId);
+  const { getAllowedNext, getTransitionLabel } = useStateMachine();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
+  const [transitioning, setTransitioning] = useState(false);
+
+  // Damage Report Form State
+  const [showDamageForm, setShowDamageForm] = useState(false);
+  const [damageEquipId, setDamageEquipId] = useState('');
+  const [damageDesc, setDamageDesc] = useState('');
+  const [damageCost, setDamageCost] = useState('');
+  const [damageSubmitting, setDamageSubmitting] = useState(false);
+
+  // Razorpay Payment & Refund States/Handlers
+  const [payingId, setPayingId] = useState(null);
+  const [refundingId, setRefundingId] = useState(null);
+
+  const handlePay = async (type, item) => {
+    setPayingId(item.id);
+    try {
+      const orderRes = await apiClient.createRazorpayOrder(type, item.id);
+      const { order_id, amount, currency, key_id } = orderRes.data;
+
+      const options = {
+        key: key_id,
+        amount: amount,
+        currency: currency,
+        name: 'SD Digitals',
+        description: type === 'invoice' ? `Rental Payment ${item.invoice_ref}` : `Security Deposit Hold`,
+        order_id: order_id,
+        handler: async function (response) {
+          alert('Payment authorized successfully! We are updating the status.');
+          await refresh();
+          if (onStatusUpdate) {
+            await onStatusUpdate();
+          }
+        },
+        prefill: {
+          name: booking?.customer?.name || '',
+          email: booking?.customer?.email || '',
+          contact: booking?.customer?.phone || '',
+        },
+        theme: {
+          color: '#0d1117',
+        },
+        modal: {
+          ondismiss: function() {
+            setPayingId(null);
+          }
+        }
+      };
+
+      if (!window.Razorpay) {
+        alert('Razorpay Checkout SDK failed to load. Please check your network connection.');
+        return;
+      }
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      alert(`Payment initialization failed: ${err.message}`);
+    } finally {
+      setPayingId(null);
+    }
+  };
+
+  const handleRefund = async (depositId) => {
+    const confirmRefund = window.confirm('Are you sure you want to refund this security deposit?');
+    if (!confirmRefund) return;
+    setRefundingId(depositId);
+    try {
+      await apiClient.refundDeposit(depositId, 'Undamaged returned equipment release');
+      alert('Security deposit refunded successfully!');
+      await refresh();
+      if (onStatusUpdate) {
+        await onStatusUpdate();
+      }
+    } catch (err) {
+      alert(`Refund failed: ${err.message}`);
+    } finally {
+      setRefundingId(null);
+    }
+  };
+
+  // ESC key to close
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const handleTransition = useCallback(async (toStatus) => {
+    setTransitioning(true);
+    try {
+      await onStatusUpdate(bookingId, {
+        new_status: toStatus,
+        changed_by: user?.name || 'System Operator',
+        reason: getTransitionLabel(toStatus),
+      });
+      await refresh();
+    } catch (err) {
+      alert(`Transition failed: ${err.message}`);
+    } finally {
+      setTransitioning(false);
+    }
+  }, [bookingId, getTransitionLabel, onStatusUpdate, refresh, user]);
+
+  const [downloadingInvoice, setDownloadingInvoice] = useState({});
+
+  const handleDownloadInvoice = async (bookingId, invoiceRef) => {
+    setDownloadingInvoice(prev => ({ ...prev, [bookingId]: true }));
+    try {
+      const blob = await apiClient.downloadInvoicePDF(bookingId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${invoiceRef || 'invoice'}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to download invoice PDF: ' + err.message);
+    } finally {
+      setDownloadingInvoice(prev => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  const handleDamageSubmit = async (e) => {
+    e.preventDefault();
+    if (!damageEquipId || !damageDesc) {
+      alert('Please select an equipment and provide a description.');
+      return;
+    }
+    setDamageSubmitting(true);
+    try {
+      await apiClient.logDamageReport({
+        booking_id: bookingId,
+        equipment_id: damageEquipId,
+        reported_by: user?.name || 'Logistics Operator',
+        description: damageDesc,
+        estimated_cost: parseFloat(damageCost || 0)
+      });
+      alert('Damage report logged successfully. Equipment status set to IN MAINTENANCE.');
+      setShowDamageForm(false);
+      setDamageEquipId('');
+      setDamageDesc('');
+      setDamageCost('');
+      await refresh();
+    } catch (err) {
+      alert(`Failed to log damage: ${err.message}`);
+    } finally {
+      setDamageSubmitting(false);
+    }
+  };
+
+  const allowedNext = booking ? getAllowedNext(booking.status) : [];
+  const hireDays = booking ? getDurationDays(booking.scheduled_delivery_date, booking.scheduled_return_date) : null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        className="flyout-backdrop"
+        onClick={onClose}
+        aria-hidden="true"
+        variants={backdropFade}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+      />
+
+      {/* Panel */}
+      <motion.aside
+        id="deep-view-flyout"
+        className="flyout"
+        role="dialog"
+        aria-modal="true"
+        aria-label={booking ? `Booking ${booking.booking_ref} details` : 'Loading booking details'}
+        variants={flyoutSlide}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+      >
+        {loading ? (
+          <SkeletonFlyout />
+        ) : error ? (
+          <div style={{ padding: 'var(--space-6)', color: 'var(--red)' }}>
+            <p>Failed to load booking: {error}</p>
+            <button className="btn btn-ghost" onClick={onClose} style={{ marginTop: 'var(--space-4)' }}>Close</button>
+          </div>
+        ) : booking ? (
+          <>
+            {/* Header */}
+            <div className="flyout__header">
+              <div className="flyout__header-left">
+                <span className="flyout__ref">{booking.booking_ref}</span>
+                <h2 className="flyout__customer-name">{booking.customer?.name}</h2>
+                {booking.customer?.company && (
+                  <span className="flyout__company">{booking.customer.company}</span>
+                )}
+                <div className="flyout-badge-container">
+                  <StatusBadge status={booking.status} size="sm" />
+                  <span className={`priority-badge priority-badge--${booking.priority?.toLowerCase() || 'medium'}`}>
+                    ⚡ {booking.priority || 'MEDIUM'}
+                  </span>
+                  <span className="source-badge">
+                    📦 {booking.source || 'PORTAL'}
+                  </span>
+                </div>
+              </div>
+              <div className="flyout__header-actions">
+                <button
+                  id="flyout-close-btn"
+                  className="flyout__close-btn"
+                  onClick={onClose}
+                  aria-label="Close booking detail panel"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="flyout__body">
+              {/* Customer contact */}
+              <div className="flyout-section">
+                <div className="flyout-section__title">Customer Contact & Owner</div>
+                <div className="flyout-info-grid">
+                  <div className="flyout-info-item">
+                    <div className="flyout-info-label">Email</div>
+                    <div className="flyout-info-value">
+                      <a href={`mailto:${booking.customer?.email}`} style={{ color: 'var(--blue)', textDecoration: 'none' }}>
+                        {booking.customer?.email}
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flyout-info-item">
+                    <div className="flyout-info-label">Phone</div>
+                    <div className="flyout-info-value">
+                      <a href={`tel:${booking.customer?.phone}`} style={{ color: 'var(--cyan)', textDecoration: 'none' }}>
+                        {booking.customer?.phone}
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flyout-info-item">
+                    <div className="flyout-info-label">Owner Assignment</div>
+                    <div className="flyout-info-value" style={{ color: 'var(--purple)', fontWeight: 600 }}>{booking.assigned_owner || 'Dilleswara Rao'}</div>
+                  </div>
+                  <div className="flyout-info-item">
+                    <div className="flyout-info-label">Hire Duration</div>
+                    <div className="flyout-info-value" style={{ color: 'var(--amber)' }}>
+                      {hireDays} day{hireDays !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <div className="flyout-info-item">
+                    <div className="flyout-info-label">Created Date</div>
+                    <div className="flyout-info-value" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      {formatDateTime(booking.created_at)}
+                    </div>
+                  </div>
+                  <div className="flyout-info-item">
+                    <div className="flyout-info-label">Last Updated</div>
+                    <div className="flyout-info-value" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      {formatDateTime(booking.updated_at)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rule Engine generated card */}
+              <div className="flyout-section">
+                <div className="flyout-section__title">Automated Analysis & Rules</div>
+                <div className="rule-card">
+                  <div className="rule-card__summary">
+                    🤖 <strong>Summary:</strong> {booking.generated_summary}
+                  </div>
+                  {booking.recommendations && booking.recommendations.length > 0 && (
+                    <div style={{ marginBottom: 'var(--space-3)' }}>
+                      <div className="flyout-info-label" style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '5px' }}>Recommendations:</div>
+                      <ul className="rule-card__list">
+                        {booking.recommendations.map((rec, i) => (
+                          <li key={i} className="rule-card__item">
+                            <span className="rule-card__icon" style={{ color: 'var(--cyan)' }}>✦</span>
+                            <span>{rec}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {booking.next_actions && booking.next_actions.length > 0 && (
+                    <div>
+                      <div className="flyout-info-label" style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '5px' }}>Suggested Next Actions:</div>
+                      <ul className="rule-card__list">
+                        {booking.next_actions.map((act, i) => (
+                          <li key={i} className="rule-card__item">
+                            <span className="rule-card__icon" style={{ color: 'var(--green)' }}>✓</span>
+                            <span style={{ fontWeight: 500 }}>{act}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Alerts details */}
+              {(booking.active_alerts && booking.active_alerts.length > 0) && (
+                <div className="flyout-section" style={{ background: 'var(--red-soft, rgba(239,68,68,0.05))' }}>
+                  <div className="flyout-section__title" style={{ color: 'var(--red)' }}>Active System Alerts ({booking.active_alerts.length})</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {booking.active_alerts.map((al, idx) => (
+                      <div key={idx} style={{
+                        padding: '8px 12px',
+                        background: 'var(--bg-secondary)',
+                        borderLeft: '4px solid var(--red)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--text-primary)',
+                        fontWeight: 500
+                      }}>
+                        {al.message}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Schedule & Location */}
+              <div className="flyout-section">
+                <div className="flyout-section__title">Schedule & Location</div>
+                <div className="flyout-info-grid">
+                  <div className="flyout-info-item">
+                    <div className="flyout-info-label">Delivery</div>
+                    <div className="flyout-info-value">{formatDate(booking.scheduled_delivery_date)}</div>
+                  </div>
+                  <div className="flyout-info-item">
+                    <div className="flyout-info-label">Return</div>
+                    <div className="flyout-info-value">{formatDate(booking.scheduled_return_date)}</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 'var(--space-3)' }}>
+                  <div className="flyout-info-label">Delivery Address</div>
+                  <div className="flyout-info-value" style={{ fontSize: 'var(--text-sm)' }}>
+                    {booking.location?.delivery_address}
+                  </div>
+                  {booking.location?.site_contact_name && (
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginTop: 4 }}>
+                      Site contact: {booking.location.site_contact_name} · {booking.location.site_contact_phone}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Equipment */}
+              {booking.equipment && booking.equipment.length > 0 && (
+                <div className="flyout-section">
+                  <div className="flyout-section__title">Equipment ({booking.equipment.length} item{booking.equipment.length !== 1 ? 's' : ''})</div>
+                  <div className="flyout-equipment-list">
+                    {booking.equipment.map((eq) => (
+                      <div key={eq.id} className="flyout-equipment-item">
+                        <div>
+                          <div className="flyout-equipment-item__name">{eq.name}</div>
+                          <div className="flyout-equipment-item__meta">{eq.serial_number} · {eq.category}</div>
+                        </div>
+                        <div className="flyout-equipment-item__rate">{formatCurrency(eq.rental_rate_per_day)}/day</div>
+                      </div>
+                    ))}
+                  </div>
+                  {hireDays && booking.equipment.length > 0 && (
+                    <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-2) var(--space-3)', background: 'var(--amber-soft)', border: '1px solid var(--amber)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--amber)', fontWeight: 600 }}>Estimated Total</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)', color: 'var(--amber)', fontWeight: 700 }}>
+                        {formatCurrency(booking.equipment.reduce((sum, e) => sum + (e.rental_rate_per_day || 0), 0) * hireDays)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Operations Log */}
+              {booking.operations_log && (
+                <div className="flyout-section">
+                  <div className="flyout-section__title">Operations Log (Logistics)</div>
+                  <div className="flyout-ops-grid">
+                    <div className="flyout-info-item">
+                      <div className="flyout-info-label">Driver</div>
+                      <div className="flyout-info-value">
+                        {booking.operations_log.driver_assigned || <span style={{ color: 'var(--text-tertiary)' }}>Unassigned</span>}
+                      </div>
+                    </div>
+                    <div className="flyout-info-item">
+                      <div className="flyout-info-label">Vehicle</div>
+                      <div className="flyout-info-value">
+                        {booking.operations_log.vehicle_id || <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                      </div>
+                    </div>
+                    <div className="flyout-info-item">
+                      <div className="flyout-info-label">Pickup Time</div>
+                      <div className="flyout-info-value">{formatDateTime(booking.operations_log.scheduled_pickup_time)}</div>
+                    </div>
+                    <div className="flyout-info-item">
+                      <div className="flyout-info-label">Return Time</div>
+                      <div className="flyout-info-value">{formatDateTime(booking.operations_log.scheduled_return_time)}</div>
+                    </div>
+                    {booking.operations_log.dispatch_notes && (
+                      <div className="flyout-info-item" style={{ gridColumn: '1 / -1' }}>
+                        <div className="flyout-info-label">Dispatch Notes</div>
+                        <div className="flyout-info-value" style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                          "{booking.operations_log.dispatch_notes}"
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Financial Ledger Section (Invoices & Deposits) */}
+              {((booking.invoices && booking.invoices.length > 0) || (booking.deposits && booking.deposits.length > 0)) && (
+                <div className="flyout-section">
+                  <div className="flyout-section__title">Financial Ledger (Quotations & Receipts)</div>
+                  {booking.invoices && booking.invoices.length > 0 && (
+                    <div style={{ marginBottom: 'var(--space-4)' }}>
+                      <div className="flyout-info-label" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Invoices:</div>
+                      <table className="finance-table">
+                        <thead>
+                          <tr>
+                            <th>Ref</th>
+                            <th>Due</th>
+                            <th>Paid</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {booking.invoices.map((inv) => (
+                            <tr key={inv.id}>
+                              <td>
+                                <div>{inv.invoice_ref}</div>
+                                {inv.razorpay_order_id && (
+                                  <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+                                    Order: {inv.razorpay_order_id}
+                                    {inv.razorpay_payment_id && ` | Pay: ${inv.razorpay_payment_id}`}
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ fontWeight: 600 }}>{formatCurrency(inv.amount_due)}</td>
+                              <td>{formatCurrency(inv.amount_paid)}</td>
+                              <td>
+                                <span className={`finance-badge finance-badge--${inv.status.toLowerCase()}`}>
+                                  {inv.status}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                  {inv.status === 'UNPAID' && user?.role === 'CUSTOMER' && (
+                                    <button
+                                      className="btn btn-xs btn-primary animate-pulse"
+                                      onClick={() => handlePay('invoice', inv)}
+                                      disabled={payingId === inv.id}
+                                      style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--green)', borderColor: 'var(--green)', cursor: 'pointer' }}
+                                    >
+                                      {payingId === inv.id ? '⏳' : '💳 Pay Rental'}
+                                    </button>
+                                  )}
+                                  <button
+                                    className="btn btn-xs btn-primary"
+                                    disabled={!!downloadingInvoice[booking.booking_id]}
+                                    onClick={() => handleDownloadInvoice(booking.booking_id, inv.invoice_ref)}
+                                    style={{ padding: '4px 8px', fontSize: '11px', minWidth: '70px', cursor: 'pointer' }}
+                                  >
+                                    {downloadingInvoice[booking.booking_id] ? '⏳ ...' : '📥 PDF'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {booking.deposits && booking.deposits.length > 0 && (
+                    <div>
+                      <div className="flyout-info-label" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Security Deposits:</div>
+                      <table className="finance-table">
+                        <thead>
+                          <tr>
+                            <th>Held</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {booking.deposits.map((dep) => (
+                            <tr key={dep.id}>
+                              <td style={{ fontWeight: 600 }}>{formatCurrency(dep.amount)}</td>
+                              <td>
+                                <div>{dep.payment_method || 'PENDING'}</div>
+                                {dep.razorpay_order_id && (
+                                  <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+                                    Order: {dep.razorpay_order_id}
+                                    {dep.razorpay_payment_id && ` | Pay: ${dep.razorpay_payment_id}`}
+                                    {dep.razorpay_refund_id && ` | Ref: ${dep.razorpay_refund_id}`}
+                                  </div>
+                                )}
+                              </td>
+                              <td>
+                                <span className={`finance-badge finance-badge--${dep.status.toLowerCase()}`}>
+                                  {dep.status}
+                                </span>
+                              </td>
+                              <td>
+                                {dep.status === 'PENDING' && user?.role === 'CUSTOMER' && (
+                                  <button
+                                    className="btn btn-xs btn-primary animate-pulse"
+                                    onClick={() => handlePay('deposit', dep)}
+                                    disabled={payingId === dep.id}
+                                    style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--cyan)', borderColor: 'var(--cyan)', cursor: 'pointer' }}
+                                  >
+                                    {payingId === dep.id ? '⏳' : '🛡️ Pay Deposit'}
+                                  </button>
+                                )}
+                                {dep.status === 'HELD' && (user?.role === 'ADMIN' || user?.role === 'EMPLOYEE') && (
+                                  <button
+                                    className="btn btn-xs btn-ghost"
+                                    onClick={() => handleRefund(dep.id)}
+                                    disabled={refundingId === dep.id}
+                                    style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--amber)', borderColor: 'var(--amber)', cursor: 'pointer' }}
+                                  >
+                                    {refundingId === dep.id ? '⏳' : '↩ Refund'}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Damage Reports Section */}
+              {((booking.damage_reports && booking.damage_reports.length > 0) || (isAdmin && booking.status === 'PICKED_UP_AND_RETURNED')) && (
+                <div className="flyout-section">
+                  <div className="flyout-section__title">Damage & Conditions Registry</div>
+                  
+                  {booking.damage_reports && booking.damage_reports.map((rep) => (
+                    <div key={rep.id} className="damage-report-item">
+                      <div className="damage-report-item__header">
+                        <span>Reported by {rep.reported_by}</span>
+                        <span style={{ fontWeight: 700 }}>Est: {formatCurrency(rep.estimated_cost)}</span>
+                      </div>
+                      <div style={{ fontSize: 'var(--text-xxs)', color: 'var(--text-tertiary)', marginBottom: 4 }}>
+                        Gear: <strong>{rep.equipment_name || 'Camera Equipment'}</strong> · Status: {rep.status}
+                      </div>
+                      <div className="damage-report-item__desc">
+                        "{rep.description}"
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Log Damage Report button and form for Admins */}
+                  {isAdmin && booking.status === 'PICKED_UP_AND_RETURNED' && (
+                    <div>
+                      {!showDamageForm ? (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ width: '100%', borderColor: 'var(--red)', color: 'var(--red)' }}
+                          onClick={() => setShowDamageForm(true)}
+                        >
+                          ⚠ File New Damage Report
+                        </button>
+                      ) : (
+                        <form onSubmit={handleDamageSubmit} className="damage-logger-form">
+                          <h4>File Damage Incident</h4>
+                          
+                          <select
+                            required
+                            value={damageEquipId}
+                            onChange={(e) => setDamageEquipId(e.target.value)}
+                          >
+                            <option value="">-- Select Damaged Gear --</option>
+                            {booking.equipment?.map((eq) => (
+                              <option key={eq.id} value={eq.id}>
+                                {eq.name} ({eq.serial_number})
+                              </option>
+                            ))}
+                          </select>
+
+                          <input
+                            type="number"
+                            placeholder="Estimated Repair Cost (₹)"
+                            value={damageCost}
+                            onChange={(e) => setDamageCost(e.target.value)}
+                            min="0"
+                          />
+
+                          <textarea
+                            required
+                            placeholder="Describe the damage, scratches, missing components in detail..."
+                            value={damageDesc}
+                            onChange={(e) => setDamageDesc(e.target.value)}
+                            rows={3}
+                          />
+
+                          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => setShowDamageForm(false)}
+                              style={{ flex: 1 }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              className="btn btn-primary btn-sm"
+                              disabled={damageSubmitting}
+                              style={{ flex: 1, background: 'var(--red)', borderColor: 'var(--red)' }}
+                            >
+                              {damageSubmitting ? 'Filing...' : 'Submit Report'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Notes */}
+              {booking.notes && (
+                <div className="flyout-section">
+                  <div className="flyout-section__title">Booking Notes</div>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{booking.notes}</p>
+                </div>
+              )}
+
+              {/* Status History */}
+              {booking.status_history && booking.status_history.length > 0 && (
+                <div className="flyout-section">
+                  <div className="flyout-section__title">Status Chronology</div>
+                  <OperationsChronology history={booking.status_history} />
+                </div>
+              )}
+            </div>
+
+            {/* Footer — transitions (Admins only) */}
+            {isAdmin && allowedNext.length > 0 && (
+              <div className="flyout__footer">
+                <div className="flyout__footer-label">Advance Workflow</div>
+                <div className="flyout__transition-btns">
+                  {allowedNext.map((status) => (
+                    <button
+                      key={status}
+                      id={`transition-btn-${status}`}
+                      className="transition-btn"
+                      onClick={() => handleTransition(status)}
+                      disabled={transitioning}
+                    >
+                      {transitioning ? '⟳' : '→'} {getTransitionLabel(status)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : null}
+      </motion.aside>
+    </>
+  );
+}
