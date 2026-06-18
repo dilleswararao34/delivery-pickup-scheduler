@@ -1,0 +1,71 @@
+services:
+  # 1. PostgreSQL Database Instance
+  - type: db
+    name: sd-digitals-db
+    plan: free
+    ipAllowList: [] # Allow connections only from services inside Render
+
+  # 2. Express Backend API Service
+  - type: web
+    name: sd-digitals-backend-api
+    plan: free
+    runtime: node
+    buildCommand: npm install --workspace=backend
+    startCommand: node backend/server.js
+    env: block
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_HOST
+        fromDatabase:
+          name: sd-digitals-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: sd-digitals-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: sd-digitals-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: sd-digitals-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: sd-digitals-db
+          property: password
+      - key: DB_SSL
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MAIN_ADMIN_EMAIL
+        value: admin@sddigitals.com
+      - key: MAIN_ADMIN_PASSWORD
+        value: Admin@1234
+      - key: FRONTEND_URL
+        fromStack:
+          name: sd-digitals-frontend
+          property: url
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+  # 3. Static Site for React Frontend
+  - type: web
+    name: sd-digitals-frontend
+    plan: free
+    runtime: static
+    buildCommand: npm install --workspace=frontend && npm run build --workspace=frontend
+    publishPath: frontend/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromStack:
+          name: sd-digitals-backend-api
+          property: url
