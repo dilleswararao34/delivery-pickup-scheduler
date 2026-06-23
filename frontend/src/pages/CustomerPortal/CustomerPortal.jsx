@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera, Sliders, Lightbulb, Mic, ZoomIn, Navigation, Briefcase,
-  ClipboardList, MessageSquare, RotateCcw, AlertTriangle, CheckCircle2, Package, X
+  ClipboardList, MessageSquare, RotateCcw, AlertTriangle, CheckCircle2, Package, X,
+  Aperture
 } from 'lucide-react';
 import NavBar from '../../components/shared/NavBar.jsx';
 import StatusBadge from '../../components/LiveLogisticsGrid/StatusBadge.jsx';
@@ -355,11 +356,15 @@ export default function CustomerPortal() {
                   animate="animate"
                 >
                   {loadingB ? (
-                    <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Loading your bookings…</p>
+                    <div className="cp-loading">
+                      <Aperture size={28} className="cp-spinner" />
+                      <span>Loading your bookings…</span>
+                    </div>
                   ) : bookings.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 'var(--space-10)', color: 'var(--text-tertiary)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <ClipboardList size={48} style={{ marginBottom: 'var(--space-3)', color: 'var(--brass)' }} />
-                      <p>No bookings yet. Request a quote to get started.</p>
+                    <div className="cp-empty">
+                      <ClipboardList size={44} className="cp-empty__icon" />
+                      <div className="cp-empty__title">No bookings yet</div>
+                      <div className="cp-empty__sub">Request a quote to get started.</div>
                     </div>
                   ) : (
                     bookings.map((b) => (
@@ -384,8 +389,10 @@ export default function CustomerPortal() {
                             {getDurationDays(b.scheduled_delivery_date, b.scheduled_return_date)} days
                           </div>
                         </div>
-                        <div className="cp-booking-card__right">
-                          <StatusBadge status={b.status} size="sm" />
+                      <div className="cp-booking-card__right">
+                          <span className={`cp-status-badge cp-status-badge--${b.status?.toLowerCase()}`}>
+                            {b.status?.replace(/_/g, ' ')}
+                          </span>
                         </div>
                       </motion.div>
                     ))
@@ -404,7 +411,10 @@ export default function CustomerPortal() {
                   animate="animate"
                 >
                   {loadingE ? (
-                    <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Loading equipment…</p>
+                    <div className="cp-loading" style={{ gridColumn: '1/-1' }}>
+                      <Aperture size={28} className="cp-spinner" />
+                      <span>Loading equipment…</span>
+                    </div>
                   ) : (
                     equipment.map((eq) => {
                       const isAvailable = eq.status === 'AVAILABLE';
@@ -421,11 +431,14 @@ export default function CustomerPortal() {
                             filter: isAvailable ? 'none' : 'grayscale(40%)',
                           }}
                         >
-                          <div className="cp-equipment-card__image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', background: 'rgba(255,255,255,0.02)' }}>
+                          <div className="cp-equipment-card__image">
                             {(() => {
                               const Icon = EQUIPMENT_ICONS[eq.category] || Package;
-                              return <Icon size={36} style={{ color: isAvailable ? 'var(--brass)' : 'var(--text-tertiary)' }} />;
+                              return <Icon size={36} />;
                             })()}
+                            <span className={`cp-equipment-card__status-badge cp-equipment-card__status-badge--${isAvailable ? 'available' : 'unavailable'}`}>
+                              {isAvailable ? '● Available' : '● Unavailable'}
+                            </span>
                           </div>
                           <div className="cp-equipment-card__body">
                             <div className="cp-equipment-card__name">{eq.name}</div>

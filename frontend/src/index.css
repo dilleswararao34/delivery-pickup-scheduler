@@ -357,6 +357,20 @@ label {
 
 .animate-in { animation: fade-in 0.25s var(--ease) both; }
 
+@keyframes aperture-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: aperture-spin 1.5s linear infinite;
+}
+
+/* Cursor utilities */
+button, [role="button"], [onclick], label[for] { cursor: pointer; }
+a { cursor: pointer; }
+[disabled], [aria-disabled="true"] { cursor: not-allowed; }
+
 /* ─── Responsive Breakpoints ─────────────────────────────────────────────── */
 @media (max-width: 1200px) {
   .dashboard__body { gap: var(--space-2) !important; padding: var(--space-2) !important; }
