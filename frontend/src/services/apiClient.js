@@ -196,6 +196,12 @@ const apiClient = {
     return http.post(`/payments/invoices/${invoiceId}/mark-paid`);
   },
 
+  // ── AI Chatbot ────────────────────────────────────────────────────────────
+  // messages: [{ role: 'user'|'model', content: string }]
+  async sendChatMessage(messages) {
+    return http.post('/chat', { messages });
+  },
+
   // ─── Legacy api.* shape (backwards compat for existing hooks) ────────────
   get api() {
     return {

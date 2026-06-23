@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Camera, Eye, ArrowRight, ShieldCheck, Clock, MapPin, Menu, X, ArrowUpRight } from 'lucide-react';
 import apiClient from '../../services/apiClient';
+import ChatWidget from '../../components/ChatWidget/ChatWidget.jsx';
 import './PublicCatalog.css';
 
 export default function PublicCatalog() {
@@ -189,6 +190,7 @@ export default function PublicCatalog() {
           </div>
         </div>
       </footer>
+      <ChatWidget />
     </div>
   );
 }

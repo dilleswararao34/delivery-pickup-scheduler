@@ -8,6 +8,7 @@ import {
 import StatusBadge from '../LiveLogisticsGrid/StatusBadge.jsx';
 import { OperationsChronology } from './OperationsChronology.jsx';
 import { SkeletonFlyout } from '../shared/SkeletonLoader.jsx';
+import DeliveryTracker from '../DeliveryTracker/DeliveryTracker.jsx';
 import { useBookingDetail } from '../../hooks/useBookings.js';
 import { useStateMachine } from '../../hooks/useStateMachine.js';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -710,6 +711,12 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                   <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{booking.notes}</p>
                 </div>
               )}
+
+              {/* Delivery Tracking Timeline */}
+              <div className="flyout-section">
+                <div className="flyout-section__title">Track Delivery</div>
+                <DeliveryTracker booking={booking} />
+              </div>
 
               {/* Status History */}
               {booking.status_history && booking.status_history.length > 0 && (

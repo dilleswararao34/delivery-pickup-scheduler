@@ -8,6 +8,7 @@ import {
 import NavBar from '../../components/shared/NavBar.jsx';
 import StatusBadge from '../../components/LiveLogisticsGrid/StatusBadge.jsx';
 import DeepViewFlyout from '../../components/DeepViewFlyout/DeepViewFlyout.jsx';
+import ChatWidget from '../../components/ChatWidget/ChatWidget.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { pageTransition, cardEntrance, staggerContainer, buttonTap } from '../../utils/motionVariants.js';
 import apiClient from '../../services/apiClient.js';
@@ -886,6 +887,9 @@ export default function CustomerPortal() {
           <span>{toast.text}</span>
         </div>
       )}
+
+      {/* ── AI Chat Widget ─────────────────────────────────────────────────── */}
+      <ChatWidget />
     </div>
   );
 }

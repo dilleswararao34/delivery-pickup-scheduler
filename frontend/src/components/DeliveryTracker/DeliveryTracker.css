@@ -1,0 +1,287 @@
+/* ── Delivery Tracker ────────────────────────────────────────────────────────── */
+
+.delivery-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Scheduled window strip ─────────────────────────────────────────────────── */
+.tracker-schedule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.tracker-schedule__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.tracker-schedule__icon {
+  flex-shrink: 0;
+}
+
+.tracker-schedule__icon--delivery { color: var(--blue); }
+.tracker-schedule__icon--return   { color: var(--amber); }
+
+.tracker-schedule__label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 1px;
+}
+
+.tracker-schedule__value {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tracker-schedule__divider {
+  width: 1px;
+  height: 32px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Special status ──────────────────────────────────────────────────────────── */
+.tracker-special {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+.tracker-special--cancellation-requested,
+.tracker-special--archived {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+/* ── Pending state ────────────────────────────────────────────────────────────── */
+.tracker-pending {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.tracker-pending__icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.tracker-pending__title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.tracker-pending__sub {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+/* ── Stage stepper ───────────────────────────────────────────────────────────── */
+.tracker-stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+.tracker-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  position: relative;
+}
+
+/* Vertical connector line between steps */
+.tracker-connector {
+  position: absolute;
+  left: 8px; /* half of 18px node */
+  top: -12px;
+  width: 2px;
+  height: 12px;
+  background: var(--border);
+  transition: background 0.3s;
+}
+
+.tracker-connector--done {
+  background: var(--green);
+}
+
+/* Step node (icon area) */
+.tracker-step__node {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.tracker-step__check {
+  color: var(--green);
+}
+
+.tracker-step__current-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-brass, #b5882a);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 4px rgba(181, 136, 42, 0.18);
+  animation: tracker-pulse 2s ease-in-out infinite;
+  margin-left: -3px;
+  margin-top: -3px;
+}
+
+@keyframes tracker-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(181, 136, 42, 0.18); }
+  50%       { box-shadow: 0 0 0 8px rgba(181, 136, 42, 0.06); }
+}
+
+.tracker-step__pending-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg-secondary);
+  margin: 4px;
+}
+
+/* Step text content */
+.tracker-step__content {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: var(--space-3);
+}
+
+.tracker-step--current .tracker-step__content {
+  padding-bottom: var(--space-4);
+}
+
+.tracker-step__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
+.tracker-step--completed .tracker-step__label {
+  color: var(--text-secondary);
+}
+
+.tracker-step--current .tracker-step__label {
+  color: var(--color-brass, #b5882a);
+  font-weight: 700;
+}
+
+.tracker-step__desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+.tracker-step__time {
+  font-size: 10px;
+  color: var(--green);
+  font-family: var(--font-mono, monospace);
+  margin-top: 2px;
+}
+
+.tracker-step__time--pending {
+  color: var(--text-tertiary);
+}
+
+/* ── Driver card ─────────────────────────────────────────────────────────────── */
+.tracker-driver-card {
+  border: 1px solid var(--border-active, var(--border));
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.tracker-driver-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(181, 136, 42, 0.08);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-brass, #b5882a);
+}
+
+.tracker-driver-card__icon {
+  color: var(--color-brass, #b5882a);
+}
+
+.tracker-driver-card__body {
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.tracker-driver-card__name {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tracker-driver-card__phone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--blue);
+  text-decoration: none;
+  padding: 3px 8px;
+  border: 1px solid var(--blue);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+
+.tracker-driver-card__phone:hover {
+  background: rgba(97, 175, 239, 0.1);
+}
+
+.tracker-driver-card__vehicle {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+}
