@@ -148,6 +148,23 @@ async function seedDevFixtures() {
       console.log(`[seed-dev-fixtures]   booking: ${bookingRef} (${b.status}) → ${bookingId}`);
     }
 
+    // ── Sync booking_ref_seq so real bookings don't collide with fixtures ──────
+    // nextval('booking_ref_seq') starts at 1 by default. After inserting fixtures
+    // with hardcoded refs like SD-2026-00004, the sequence is still at 1, so the
+    // very first real booking would generate SD-YYYY-00001 and hit a UNIQUE error.
+    // This advances the sequence to match the highest suffix already in the table.
+    await client.query(`
+      SELECT setval(
+        'booking_ref_seq',
+        GREATEST(
+          (SELECT COALESCE(MAX(CAST(SUBSTRING(booking_ref FROM '[0-9]+$') AS INTEGER)), 0)
+           FROM bookings),
+          1
+        )
+      )
+    `);
+    console.log('[seed-dev-fixtures]   booking_ref_seq synced to max existing suffix.');
+
     // ── System Alerts ─────────────────────────────────────────────────────────
     await client.query(
       `INSERT INTO system_alerts (related_entity, trigger_type, priority, message, payload)

@@ -47,7 +47,6 @@ export default function PublicCatalog() {
           <nav className="landing-nav-links">
             <Link to="/terms" className="nav-link">Terms</Link>
             <Link to="/privacy" className="nav-link">Privacy</Link>
-            <Link to="/staff/login" className="nav-link staff-link">Staff Portal</Link>
             <button onClick={() => navigate('/login')} className="nav-cta-btn">
               Client Portal <ArrowRight size={14} className="cta-icon" />
             </button>
@@ -171,7 +170,6 @@ export default function PublicCatalog() {
             <div className="footer-links-group">
               <h4>Quick Links</h4>
               <Link to="/login">Client Portal</Link>
-              <Link to="/staff/login">Staff Portal</Link>
             </div>
             <div className="footer-links-group">
               <h4>Legal &amp; Info</h4>

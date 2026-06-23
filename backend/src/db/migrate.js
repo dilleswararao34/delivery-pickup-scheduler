@@ -303,14 +303,14 @@ async function migrate() {
   const client = await pool.connect();
   try {
     console.log('[migrate] Starting database migration...');
-    
-    // Ensure user_role enum exists
-    await client.query(`
-      DO $$ BEGIN
-        CREATE TYPE user_role AS ENUM ('CUSTOMER', 'ADMIN');
-      EXCEPTION WHEN duplicate_object THEN NULL;
-      END $$;
-    `);
+
+    // ── Step 1: Run DDL first so all types/tables exist ──────────────────────
+    // This MUST run before the enum-value checks below, because on a fresh
+    // database booking_status and user_role don't exist until DDL creates them.
+    await client.query(DDL);
+
+    // ── Step 2: Add enum values that were introduced after the initial schema ─
+    // ALTER TYPE … ADD VALUE is idempotent-guarded by the pg_enum check.
 
     // Ensure EMPLOYEE value is in user_role
     const enumCheck = await client.query(`
@@ -331,10 +331,8 @@ async function migrate() {
       console.log('[migrate] Adding CANCELLATION_REQUESTED to booking_status enum...');
       await client.query("ALTER TYPE booking_status ADD VALUE 'CANCELLATION_REQUESTED'");
     }
-
-    await client.query(DDL);
     
-    // Schema alterations for Razorpay columns on existing tables
+    // ── Step 3: Apply Razorpay column migrations ──────────────────────────────
     console.log('[migrate] Applying Razorpay database migrations...');
     await client.query(`
       ALTER TABLE invoices ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(100);
@@ -351,31 +349,42 @@ async function migrate() {
 
     console.log('[migrate] ✅ All tables and indexes created/migrated successfully.');
 
-    // Seed main admin if not present
+    // ── Step 4: Seed main admin if not present ───────────────────────────────
     const adminCheck = await client.query("SELECT * FROM users WHERE role = 'ADMIN'");
     if (adminCheck.rows.length === 0) {
       const isProd = process.env.NODE_ENV === 'production';
-      let email = process.env.MAIN_ADMIN_EMAIL;
+      let email    = process.env.MAIN_ADMIN_EMAIL;
       let password = process.env.MAIN_ADMIN_PASSWORD;
 
       if (!email || !password) {
         if (isProd) {
-          throw new Error('MAIN_ADMIN_EMAIL and MAIN_ADMIN_PASSWORD environment variables are required to seed the main admin user, but they are not set.');
-        } else {
-          email = 'admin@sddigitals.com';
-          password = 'Admin@1234';
+          throw new Error(
+            'MAIN_ADMIN_EMAIL and MAIN_ADMIN_PASSWORD environment variables are required ' +
+            'in production but are not set.'
+          );
         }
+        // Dev/staging: generate a random one-time password so we never ship
+        // a known default credential in the repository.
+        const crypto = require('crypto');
+        email    = 'admin@sddigitals.local';
+        password = crypto.randomBytes(12).toString('base64url');  // ~16 chars, URL-safe
+        console.log('\n╔══════════════════════════════════════════════════════╗');
+        console.log('║          DEV ADMIN — ONE-TIME CREDENTIALS            ║');
+        console.log(`║  Email   : ${email.padEnd(40)}║`);
+        console.log(`║  Password: ${password.padEnd(40)}║`);
+        console.log('║  Save these now — the password is NOT stored again.  ║');
+        console.log('╚══════════════════════════════════════════════════════╝\n');
       }
 
-      const name = 'Main Admin';
+      const name   = 'Main Admin';
       const bcrypt = require('bcryptjs');
-      const hash = await bcrypt.hash(password, 12);
+      const hash   = await bcrypt.hash(password, 12);
       await client.query(
         `INSERT INTO users (email, password_hash, name, role)
          VALUES ($1, $2, $3, 'ADMIN')`,
         [email.toLowerCase().trim(), hash, name]
       );
-      console.log(`[migrate] Seeded main admin: ${email}`);
+      console.log(`[migrate] ✅ Seeded main admin: ${email}`);
     }
   } catch (err) {
     console.error('[migrate] ❌ Migration failed:', err.message);

@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Zap, Package, Sparkles, CreditCard, ShieldCheck, 
-  RotateCcw, Clock, Download, DollarSign, Check, AlertTriangle 
+  RotateCcw, Clock, Download, DollarSign, Check, AlertTriangle,
+  X, ChevronRight, ArrowRight, Loader2
 } from 'lucide-react';
 import StatusBadge from '../LiveLogisticsGrid/StatusBadge.jsx';
 import { OperationsChronology } from './OperationsChronology.jsx';
@@ -264,7 +265,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                   onClick={onClose}
                   aria-label="Close booking detail panel"
                 >
-                  ✕
+                  <X size={14} />
                 </button>
               </div>
             </div>
@@ -329,7 +330,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                       <ul className="rule-card__list">
                         {booking.recommendations.map((rec, i) => (
                           <li key={i} className="rule-card__item">
-                            <span className="rule-card__icon" style={{ color: 'var(--cyan)' }}>✦</span>
+                            <span className="rule-card__icon" style={{ color: 'var(--cyan)', display: 'inline-flex', verticalAlign: 'middle' }}><ChevronRight size={12} /></span>
                             <span>{rec}</span>
                           </li>
                         ))}
@@ -342,7 +343,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                       <ul className="rule-card__list">
                         {booking.next_actions.map((act, i) => (
                           <li key={i} className="rule-card__item">
-                            <span className="rule-card__icon" style={{ color: 'var(--green)' }}>✓</span>
+                            <span className="rule-card__icon" style={{ color: 'var(--green)', display: 'inline-flex', verticalAlign: 'middle' }}><Check size={12} /></span>
                             <span style={{ fontWeight: 500 }}>{act}</span>
                           </li>
                         ))}
@@ -732,7 +733,10 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                       onClick={() => handleTransition(status)}
                       disabled={transitioning}
                     >
-                      {transitioning ? '⟳' : '→'} {getTransitionLabel(status)}
+                      {transitioning
+                        ? <Loader2 size={12} className="animate-spin" style={{ display: 'inline', verticalAlign: 'middle' }} />
+                        : <ArrowRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />}
+                      {' '}{getTransitionLabel(status)}
                     </button>
                   ))}
                 </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { formatRelative } from '../../utils/dateFormat.js';
 import { alertEntrance } from '../../utils/motionVariants.js';
 import './OpsAssistant.css';
@@ -48,7 +49,7 @@ export default function AlertCard({ alert, onDismiss }) {
             aria-label={`Dismiss ${priority} alert`}
             title="Dismiss this alert"
           >
-            ✕
+            <X size={12} />
           </button>
         )}
       </div>
