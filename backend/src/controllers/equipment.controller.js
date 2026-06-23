@@ -15,9 +15,18 @@ async function listEquipment(req, res, next) {
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const result = await db.query(`SELECT * FROM equipment ${where} ORDER BY category, name`, params);
 
+    const isStaff = req.user && (req.user.role === 'ADMIN' || req.user.role === 'EMPLOYEE');
+    const data = result.rows.map(row => {
+      if (!isStaff) {
+        const { replacement_value, notes, acquired_at, last_serviced_at, ...rest } = row;
+        return rest;
+      }
+      return row;
+    });
+
     res.json({
       success: true,
-      data: result.rows,
+      data,
       meta: { requestId: req.requestId, timestamp: new Date().toISOString(), pagination: null },
       error: null,
     });

@@ -1,8 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Truck, CheckCircle, Hourglass, Package, RotateCcw,
+  ChevronLeft, ChevronRight, TrendingUp, BarChart3,
+  Plus, RefreshCw, Lock, FileText, AlertTriangle 
+} from 'lucide-react';
 import NavBar from '../shared/NavBar.jsx';
-import Topbar from '../shared/Topbar.jsx';
 import LiveLogisticsGrid from '../LiveLogisticsGrid/LiveLogisticsGrid.jsx';
 import IntakeCommand from '../IntakeCommand/IntakeCommand.jsx';
 import OpsAssistant from '../OpsAssistant/OpsAssistant.jsx';
@@ -16,6 +20,14 @@ import { formatCurrency } from '../../utils/dateFormat.js';
 import apiClient from '../../services/apiClient.js';
 import '../shared/shared.css';
 import './Dashboard.css';
+
+const getActionIcon = (action) => {
+  if (action.includes('CREATE')) return <Plus size={14} />;
+  if (action.includes('STATUS')) return <RefreshCw size={14} />;
+  if (action.includes('DAMAGE') || action.includes('REPORT')) return <AlertTriangle size={14} />;
+  if (action.includes('PASSWORD')) return <Lock size={14} />;
+  return <FileText size={14} />;
+};
 
 export default function Dashboard() {
   const location = useLocation();
@@ -424,12 +436,11 @@ export default function Dashboard() {
   }
 
   const stats = [
-    { icon: '🚐', label: 'In Transit',      value: liveCount,        mod: 'live',  filterValue: 'OUT_FOR_DELIVERY' },
-    { icon: '✅', label: 'Confirmed',        value: confirmedCount,   mod: 'ok',    filterValue: 'CONFIRMED' },
-    { icon: '⏳', label: 'Awaiting Pickup',  value: awaitingCount,    mod: 'warn',  filterValue: 'AWAITING_PICKUP' },
-    { icon: '🔔', label: 'Active Alerts',    value: totalAlertCount,  mod: 'alert', action: 'alerts' },
-    { icon: '📦', label: 'Total Bookings',   value: totalBookingsCount,  mod: '',      filterValue: '' },
-    { icon: '↩',  label: 'Returned',         value: returnedCount,    mod: 'ok',    filterValue: 'PICKED_UP_AND_RETURNED' },
+    { icon: <Truck size={14} />, label: 'In Transit',      value: liveCount,        mod: 'live',  filterValue: 'OUT_FOR_DELIVERY' },
+    { icon: <CheckCircle size={14} />, label: 'Confirmed',        value: confirmedCount,   mod: 'ok',    filterValue: 'CONFIRMED' },
+    { icon: <Hourglass size={14} />, label: 'Awaiting Pickup',  value: awaitingCount,    mod: 'warn',  filterValue: 'AWAITING_PICKUP' },
+    { icon: <Package size={14} />, label: 'Total Bookings',   value: totalBookingsCount,  mod: '',      filterValue: '' },
+    { icon: <RotateCcw size={14} />,  label: 'Returned',         value: returnedCount,    mod: 'ok',    filterValue: 'PICKED_UP_AND_RETURNED' },
   ];
 
   return (
@@ -441,15 +452,8 @@ export default function Dashboard() {
       animate="animate"
       exit="exit"
     >
-      {/* ── Responsive NavBar (role-aware) ───────────────────────────────────── */}
-      <NavBar />
-
-      {/* ── Internal Topbar (brand identity + operator context) ─────────────── */}
-      <Topbar
-        alertCount={totalAlertCount}
-        bookingCount={totalBookingsCount}
-        onAlertClick={() => navigate('/admin/alerts')}
-      />
+      {/* ── NavBar with integrated alert bell ─────────────────────────────── */}
+      <NavBar alertCount={totalAlertCount} />
 
       {/* ── Stats Bar ────────────────────────────────────────────────────────── */}
       <motion.div
@@ -606,15 +610,15 @@ export default function Dashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
               <div>
                 <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-1)' }}>Operations Calendar</h2>
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Track scheduled deliveries (🚚) and returns (↩) over time</p>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Track scheduled deliveries and returns over time</p>
               </div>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                <button className="btn btn-ghost" onClick={handlePrevMonth} style={{ fontSize: 'var(--text-md)', padding: '6px 12px', cursor: 'pointer' }}>◀</button>
+                <button className="btn btn-ghost" onClick={handlePrevMonth} style={{ fontSize: 'var(--text-md)', padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><ChevronLeft size={16} /></button>
                 <span style={{ fontSize: 'var(--text-md)', fontWeight: 700, minWidth: '140px', textAlign: 'center', color: 'var(--text-primary)' }}>
                   {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][calMonth]} {calYear}
                 </span>
-                <button className="btn btn-ghost" onClick={handleNextMonth} style={{ fontSize: 'var(--text-md)', padding: '6px 12px', cursor: 'pointer' }}>▶</button>
+                <button className="btn btn-ghost" onClick={handleNextMonth} style={{ fontSize: 'var(--text-md)', padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><ChevronRight size={16} /></button>
               </div>
             </div>
 
@@ -703,7 +707,7 @@ export default function Dashboard() {
                               }}
                               title={`${isDelivery ? 'Delivery' : 'Return'} - ${ref} (${client})`}
                             >
-                              <span>{isDelivery ? '🚚' : '↩'}</span>
+                              <span>{isDelivery ? <Truck size={10} /> : <RotateCcw size={10} />}</span>
                               <span>{ref}</span>
                               <span style={{ opacity: 0.8, fontWeight: 400 }}>· {client}</span>
                             </div>
@@ -728,7 +732,9 @@ export default function Dashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
               {alerts.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 'var(--space-10)', color: 'var(--text-tertiary)' }}>
-                  <div style={{ fontSize: 48, marginBottom: 'var(--space-3)' }}>🎉</div>
+                  <div style={{ marginBottom: 'var(--space-3)', display: 'flex', justifyContent: 'center' }}>
+                    <CheckCircle size={36} style={{ color: 'var(--color-brass)' }} />
+                  </div>
                   <p>All clear! No active system alerts.</p>
                 </div>
               ) : (
@@ -782,17 +788,17 @@ export default function Dashboard() {
             {/* KPI Cards Row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-3)', flexShrink: 0 }}>
               <div className="card" style={{ padding: 'var(--space-4) var(--space-5)', background: 'linear-gradient(135deg, var(--blue-soft), var(--bg-secondary))', border: '1px solid var(--blue)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📈 Active Bookings</span>
+                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}><TrendingUp size={12} /> Active Bookings</span>
                 <span style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--text-primary)' }}>{activeBookingsCount}</span>
                 <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Confirmed & In-Transit orders</span>
               </div>
               <div className="card" style={{ padding: 'var(--space-4) var(--space-5)', background: 'linear-gradient(135deg, var(--red-soft), var(--bg-secondary))', border: '1px solid var(--red)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>⚠️ Overdue Returns</span>
+                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}><AlertTriangle size={12} /> Overdue Returns</span>
                 <span style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--red)' }}>{overdueReturnsCount}</span>
                 <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Orders past return window</span>
               </div>
               <div className="card" style={{ padding: 'var(--space-4) var(--space-5)', background: 'linear-gradient(135deg, var(--cyan-soft), var(--bg-secondary))', border: '1px solid var(--cyan)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📊 Gear Utilization</span>
+                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}><BarChart3 size={12} /> Gear Utilization</span>
                 <span style={{ fontSize: 'var(--text-3xl)', fontWeight: 700, color: 'var(--cyan)' }}>{equipmentUtilization}%</span>
                 <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{utilizedEquipmentCount} of {totalEquipmentCount} items out/reserved</span>
               </div>
@@ -1044,15 +1050,9 @@ export default function Dashboard() {
             ) : (
               <div className="audit-timeline">
                 {logs.map((log) => {
-                  let actionEmoji = '📝';
-                  if (log.action.includes('CREATE')) actionEmoji = '🆕';
-                  if (log.action.includes('STATUS')) actionEmoji = '🔄';
-                  if (log.action.includes('DAMAGE') || log.action.includes('REPORT')) actionEmoji = '⚠️';
-                  if (log.action.includes('PASSWORD')) actionEmoji = '🔐';
-
                   return (
                     <div key={log.log_id} className="audit-item">
-                      <div className="audit-icon">{actionEmoji}</div>
+                      <div className="audit-icon">{getActionIcon(log.action)}</div>
                       <div className="audit-details">
                         <div className="audit-meta">
                           <span>{log.user_name} ({log.user_email})</span>
@@ -1428,7 +1428,7 @@ export default function Dashboard() {
           zIndex: 9999,
           animation: 'slide-in-right 0.2s ease',
         }}>
-          {toast.type === 'error' ? '⚠️ ' : '✅ '} {toast.text}
+          {toast.type === 'error' ? <AlertTriangle size={14} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '4px' }} /> : <CheckCircle size={14} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '4px' }} />} {toast.text}
         </div>
       )}
     </motion.div>

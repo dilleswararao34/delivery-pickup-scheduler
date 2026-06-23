@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { Zap, CheckCircle2, Info } from 'lucide-react';
 import AlertCard from './AlertCard.jsx';
 import { SkeletonCard } from '../shared/SkeletonLoader.jsx';
 import './OpsAssistant.css';
@@ -17,8 +18,8 @@ export default function OpsAssistant({ alerts, loading, onDismiss }) {
   return (
     <aside className="ops-assistant card" aria-label="Operations Assistant Sidebar">
       <div className="ops-assistant__header">
-        <div className="ops-assistant__title">
-          <span>⚡</span>
+        <div className="ops-assistant__title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Zap size={16} style={{ color: 'var(--brass)' }} />
           <span>Ops Assistant</span>
         </div>
         <span className="ops-assistant__ai-pill">AI Rules Engine</span>
@@ -31,8 +32,10 @@ export default function OpsAssistant({ alerts, loading, onDismiss }) {
             <SkeletonCard />
           </>
         ) : alerts.length === 0 ? (
-          <div className="ops-no-alerts">
-            <div className="ops-no-alerts__icon">✅</div>
+          <div className="ops-no-alerts" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="ops-no-alerts__icon">
+              <CheckCircle2 size={32} style={{ color: 'var(--green)' }} />
+            </div>
             <p className="ops-no-alerts__text">All systems nominal. No active alerts.</p>
           </div>
         ) : (
@@ -55,7 +58,10 @@ export default function OpsAssistant({ alerts, loading, onDismiss }) {
             </p>
             {OPS_TIPS.map((tip) => (
               <div key={tip.id} className="ops-tip" style={{ marginBottom: 'var(--space-2)' }}>
-                <div className="ops-tip__label">🔧 Rule #{tip.id}</div>
+                <div className="ops-tip__label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Info size={12} style={{ color: 'var(--brass)' }} />
+                  <span>Rule #{tip.id}</span>
+                </div>
                 <p className="ops-tip__text">{tip.text}</p>
               </div>
             ))}

@@ -2,22 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { loginCardEntrance, shakeError, buttonTap } from '../../utils/motionVariants.js';
+import { loginCardEntrance, shakeError } from '../../utils/motionVariants.js';
 import apiClient from '../../services/apiClient.js';
 import './LoginPage.css';
-
-const ROLES = [
-  { id: 'CUSTOMER', icon: '🎬', label: 'Customer Portal', desc: 'Rental bookings & returns' },
-  { id: 'ADMIN', icon: '⚡', label: 'Admin Dashboard', desc: 'Logistics & operations' },
-];
-
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [selectedRole, setSelectedRole] = useState('ADMIN');
   const [mode, setMode] = useState('signin'); // 'signin' or 'signup'
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -49,7 +42,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     /* global google */
-    if (typeof google !== 'undefined' && import.meta.env.VITE_GOOGLE_CLIENT_ID && selectedRole === 'CUSTOMER') {
+    if (typeof google !== 'undefined' && import.meta.env.VITE_GOOGLE_CLIENT_ID) {
       try {
         google.accounts.id.initialize({
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
@@ -84,17 +77,7 @@ export default function LoginPage() {
         console.error('Google GSI rendering failed:', err);
       }
     }
-  }, [selectGoogleAccount, selectedRole]);
-
-  const handleRoleSwitch = (roleId) => {
-    setSelectedRole(roleId);
-    setMode('signin');
-    setEmail('');
-    setPassword('');
-    setName('');
-    setPhone('');
-    setError('');
-  };
+  }, [selectGoogleAccount]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -118,18 +101,9 @@ export default function LoginPage() {
       if (mode === 'signin') {
         data = await apiClient.login(email, password);
       } else {
-        data = await apiClient.register({ name, email, password, role: selectedRole, phone });
+        data = await apiClient.register({ name, email, password, role: 'CUSTOMER', phone });
       }
       const { accessToken, user } = data;
-
-      // Role mismatch guard
-      const isRoleMatched = (selectedRole === 'ADMIN' && (user.role === 'ADMIN' || user.role === 'EMPLOYEE')) ||
-        (selectedRole === 'CUSTOMER' && user.role === 'CUSTOMER');
-      if (!isRoleMatched) {
-        setError(`This account is registered as ${user.role}. Please select the correct portal tab.`);
-        triggerShake();
-        return;
-      }
 
       login(accessToken, user);
       const from = location.state?.from?.pathname || ((user.role === 'ADMIN' || user.role === 'EMPLOYEE') ? '/admin' : '/customer');
@@ -159,51 +133,32 @@ export default function LoginPage() {
         <div className="login-card__header">
           <div className="login-card__logo">SD</div>
           <h1 className="login-card__title">SD Digitals</h1>
-          <p className="login-card__subtitle">Delivery &amp; Pickup Scheduler</p>
-        </div>
-
-        {/* Role-selection tabs */}
-        <div className="login-card__tabs" role="tablist" aria-label="Select portal">
-          {ROLES.map((role) => (
-            <button
-              key={role.id}
-              id={`login-tab-${role.id.toLowerCase()}`}
-              role="tab"
-              aria-selected={selectedRole === role.id}
-              className={`login-tab${selectedRole === role.id ? ' login-tab--active' : ''}`}
-              onClick={() => handleRoleSwitch(role.id)}
-            >
-              <span className="login-tab__icon">{role.icon}</span>
-              <span className="login-tab__label">{role.label}</span>
-            </button>
-          ))}
+          <p className="login-card__subtitle">Customer Rental Portal</p>
         </div>
 
         {/* Switcher between Login and Signup */}
-        {selectedRole === 'CUSTOMER' && (
-          <div className="login-mode-switcher">
-            <button
-              type="button"
-              className={`login-mode-btn${mode === 'signin' ? ' active' : ''}`}
-              onClick={() => { setMode('signin'); setError(''); }}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              className={`login-mode-btn${mode === 'signup' ? ' active' : ''}`}
-              onClick={() => { setMode('signup'); setError(''); }}
-            >
-              Sign Up
-            </button>
-          </div>
-        )}
+        <div className="login-mode-switcher">
+          <button
+            type="button"
+            className={`login-mode-btn${mode === 'signin' ? ' active' : ''}`}
+            onClick={() => { setMode('signin'); setError(''); }}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            className={`login-mode-btn${mode === 'signup' ? ' active' : ''}`}
+            onClick={() => { setMode('signup'); setError(''); }}
+          >
+            Sign Up
+          </button>
+        </div>
 
         {/* Form */}
         <div className="login-card__body">
           <AnimatePresence mode="wait">
             <motion.form
-              key={`${selectedRole}-${mode}`}
+              key={mode}
               onSubmit={handleSubmit}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } }}
@@ -219,8 +174,10 @@ export default function LoginPage() {
                     whileInView={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                     role="alert"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
-                    ⚠ {error}
+                    <AlertTriangle size={16} />
+                    {error}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -263,7 +220,7 @@ export default function LoginPage() {
                   className="login-form__input"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={`${selectedRole === 'ADMIN' ? 'admin' : 'customer'}@example.com`}
+                  placeholder="customer@example.com"
                   autoComplete="email"
                   required
                 />
@@ -291,12 +248,12 @@ export default function LoginPage() {
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
               >
-                {loading ? '⟳ Connecting…' : mode === 'signin' ? `Sign In as ${selectedRole === 'ADMIN' ? 'Admin' : 'Customer'} →` : `Sign Up as ${selectedRole === 'ADMIN' ? 'Admin' : 'Customer'} →`}
+                {loading ? '⟳ Connecting…' : mode === 'signin' ? 'Sign In →' : 'Sign Up →'}
               </motion.button>
             </motion.form>
           </AnimatePresence>
 
-          {selectedRole === 'CUSTOMER' && import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+          {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
             <>
               <div className="login-form__separator">
                 <span>or</span>
@@ -308,8 +265,6 @@ export default function LoginPage() {
             </>
           )}
         </div>
-
-
       </motion.div>
     </div>
   );

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { AlertTriangle, Clock, Truck } from 'lucide-react';
 import StatusBadge from './StatusBadge.jsx';
 import { formatDate, formatDateTime, isOverdue, isDueSoon } from '../../utils/dateFormat.js';
 import { cardEntrance } from '../../utils/motionVariants.js';
@@ -26,8 +27,8 @@ export default function BookingRow({ booking, onClick, isSelected }) {
       <td className="grid-cell grid-cell--ref">
         <div className="grid-ref">
           <span className="grid-ref__code">{booking.booking_ref}</span>
-          {overdue  && <span className="grid-ref__flag grid-ref__flag--overdue"  title="Overdue return">⚠</span>}
-          {dueSoon  && <span className="grid-ref__flag grid-ref__flag--due-soon" title="Due for delivery soon">⏰</span>}
+          {overdue  && <span className="grid-ref__flag grid-ref__flag--overdue"  title="Overdue return"><AlertTriangle size={12} /></span>}
+          {dueSoon  && <span className="grid-ref__flag grid-ref__flag--due-soon" title="Due for delivery soon"><Clock size={12} /></span>}
         </div>
       </td>
 
@@ -88,7 +89,7 @@ export default function BookingRow({ booking, onClick, isSelected }) {
       <td className="grid-cell">
         {booking.driver_assigned ? (
           <div className="grid-driver">
-            <span className="grid-driver__icon" aria-hidden="true">🚐</span>
+            <span className="grid-driver__icon" aria-hidden="true"><Truck size={14} /></span>
             <span className="grid-driver__name">{booking.driver_assigned}</span>
           </div>
         ) : (

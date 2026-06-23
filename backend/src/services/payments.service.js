@@ -153,8 +153,102 @@ async function refundDeposit(depositId, changedByEmail, reason = 'Equipment retu
   };
 }
 
+async function refundInvoice(invoiceId, changedByEmail, reason = 'Booking cancelled/archived', client = db) {
+  // 1. Fetch invoice and related customer/booking info
+  const invoiceRes = await client.query(
+    `SELECT i.*, c.name AS customer_name, c.email AS customer_email, b.booking_ref, b.id AS booking_id
+     FROM invoices i
+     JOIN bookings b ON i.booking_id = b.id
+     JOIN customers c ON b.customer_id = c.id
+     WHERE i.id = $1`,
+    [invoiceId]
+  );
+
+  if (!invoiceRes.rows.length) {
+    throw new Error(`Invoice with ID ${invoiceId} not found.`);
+  }
+
+  const invoice = invoiceRes.rows[0];
+
+  if (invoice.status === 'REFUNDED') {
+    console.log(`[PaymentsService] Invoice ${invoiceId} is already refunded.`);
+    return invoice;
+  }
+
+  if (invoice.status !== 'PAID') {
+    throw new Error(`Invoice status is '${invoice.status}'. Only invoices with status 'PAID' can be refunded.`);
+  }
+
+  if (!invoice.razorpay_payment_id) {
+    throw new Error(`Cannot refund invoice ${invoiceId}: Missing Razorpay Payment ID.`);
+  }
+
+  const amountInPaise = Math.round(parseFloat(invoice.amount_paid) * 100);
+  console.log(`[PaymentsService] Triggering Razorpay refund for payment ${invoice.razorpay_payment_id}, amount: ₹${invoice.amount_paid}`);
+
+  // 2. Call Razorpay API to process refund
+  let refundResult;
+  try {
+    refundResult = await new Promise((resolve, reject) => {
+      razorpay.payments.refund(invoice.razorpay_payment_id, {
+        amount: amountInPaise,
+        notes: {
+          reason: reason,
+          booking_ref: invoice.booking_ref,
+          invoice_id: invoiceId
+        }
+      }, (err, refund) => {
+        if (err) {
+          console.error('[PaymentsService] Razorpay Refund call failed:', err);
+          return reject(err);
+        }
+        resolve(refund);
+      });
+    });
+  } catch (err) {
+    throw new Error(`Razorpay Refund failed: ${err.message || err.description || 'Unknown error'}`);
+  }
+
+  const refundId = refundResult.id;
+
+  // 3. Update database record status to REFUNDED
+  await client.query(
+    `UPDATE invoices
+     SET status = 'REFUNDED', razorpay_refund_id = $1, updated_at = NOW()
+     WHERE id = $2`,
+    [refundId, invoiceId]
+  );
+
+  // 4. Record Employee/Admin activity log
+  const userRes = await client.query(
+    "SELECT user_id, name FROM users WHERE email = $1",
+    [changedByEmail.toLowerCase().trim()]
+  );
+  const user = userRes.rows[0] || { user_id: null, name: 'System / Automator' };
+
+  await activityLogService.logAction({
+    userId: user.user_id || '00000000-0000-0000-0000-000000000000',
+    userName: user.name,
+    userEmail: changedByEmail,
+    action: 'REFUND_INVOICE',
+    entityType: 'INVOICE',
+    entityId: invoiceId,
+    details: `Refunded invoice amount ₹${invoice.amount_paid} for Booking ${invoice.booking_ref}. Refund ID: ${refundId}. Reason: ${reason}`
+  }, client);
+
+  // 5. Send Refund confirmation email to Customer
+  await notificationsService.sendInvoiceRefundConfirmation(invoice, refundId);
+
+  return {
+    ...invoice,
+    status: 'REFUNDED',
+    razorpay_refund_id: refundId
+  };
+}
+
 module.exports = {
   createOrder,
   refundDeposit,
+  refundInvoice,
   razorpay
 };

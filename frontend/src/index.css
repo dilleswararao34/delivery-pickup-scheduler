@@ -1,56 +1,60 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   SD DIGITALS — DESIGN SYSTEM v2
-   Delivery & Pickup Scheduler · Clean Professional Interface
+   SD DIGITALS — DESIGN SYSTEM v3
+   Minimal Luxury Editorial Design System
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 /* ─── Design Tokens ──────────────────────────────────────────────────────── */
 :root {
-  /* Canvas — Clean Light Blue / White Theme */
-  --bg-primary:    #f3f6fa;   /* Cool light gray-blue background */
-  --bg-secondary:  #ffffff;   /* Pure white surfaces */
-  --bg-tertiary:   #e8edf5;   /* Light gray-blue for panels/headers */
+  /* Warm Editorial Colors */
+  --color-ink:      #14151A;
+  --color-paper:    #FAFAF8;
+  --color-graphite: #5B5D66;
+  --color-brass:    #B08D57;
+  --color-hairline:  #E4E3DE;
+
+  /* Canvas mapping */
+  --bg-primary:    var(--color-paper);
+  --bg-secondary:  #ffffff;
+  --bg-tertiary:   #f4f3ef;
   --bg-elevated:   #ffffff;
-  --bg-overlay:    rgba(15, 23, 42, 0.45); /* Slate overlay */
+  --bg-overlay:    rgba(20, 21, 26, 0.4);
 
-  /* Borders — Clean cool slate */
-  --border:        #d2dae7;
-  --border-subtle: #f0f3f8;
-  --border-active: #2563eb;   /* Premium blue border */
-  --border-focus:  rgba(37, 99, 235, 0.15);
+  /* Borders */
+  --border:        var(--color-hairline);
+  --border-subtle: #f6f5f1;
+  --border-active: var(--color-brass);
+  --border-focus:  rgba(176, 141, 87, 0.15);
 
-  /* Brand accent — Clean corporate blue */
-  --accent:        #2563eb;   /* Royal blue brand color */
-  --accent-light:  #3b82f6;   /* Sky blue tint */
-  --accent-soft:   rgba(37, 99, 235, 0.06);
-  --accent-text:   #ffffff;
+  /* Accent styling */
+  --accent:        var(--color-brass);
+  --accent-light:  #cbb085;
+  --accent-soft:   rgba(176, 141, 87, 0.08);
+  --accent-text:   var(--color-paper);
 
-  /* Semantic colors — high contrast, clean */
-  --blue:          #2563eb;
-  --blue-soft:     rgba(37, 99, 235, 0.08);
-  --green:         #10b981;   /* Modern emerald green */
-  --green-soft:    rgba(16, 185, 129, 0.08);
-  --red:           #ef4444;   /* Modern rose red */
-  --red-soft:      rgba(239, 68, 68, 0.08);
-  --amber:         #f59e0b;   /* Modern amber warning */
-  --amber-soft:    rgba(245, 158, 11, 0.08);
-  --purple:        #8b5cf6;   /* Modern vibrant purple */
-  --purple-soft:   rgba(139, 92, 246, 0.08);
+  /* Semantic Colors - Softened NCR palette */
+  --blue:          #4f6c88;
+  --blue-soft:     rgba(79, 108, 136, 0.08);
+  --green:         #798d6b;
+  --green-soft:    rgba(121, 141, 107, 0.08);
+  --red:           #a35353;
+  --red-soft:      rgba(163, 83, 83, 0.08);
+  --amber:         #c2843d;
+  --amber-soft:    rgba(194, 132, 61, 0.08);
+  --purple:        #7f5d94;
+  --purple-soft:   rgba(127, 93, 148, 0.08);
 
-  /* Soft aliases (backwards compat) */
-  --cyan:          var(--accent);
-  --cyan-soft:     var(--accent-soft);
+  /* Text styles */
+  --text-primary:   var(--color-ink);
+  --text-secondary: var(--color-graphite);
+  --text-tertiary:  #a6a59e;
+  --text-inverse:   var(--color-paper);
 
-  /* Text — warm, readable */
-  --text-primary:   #1c1917;
-  --text-secondary: #6b6560;
-  --text-tertiary:  #a8a39c;
-  --text-inverse:   #ffffff;
-
-  /* Typography */
+  /* Fonts */
   --font:      'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', 'Fira Code', monospace;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-display: 'Fraunces', Georgia, serif;
   --font-sans: var(--font);
 
   /* Scale */
@@ -74,30 +78,30 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* Radius — slightly tighter, more refined */
-  --radius-xs:   2px;
-  --radius-sm:   4px;
-  --radius-md:   6px;
-  --radius-lg:   10px;
-  --radius-xl:   14px;
-  --radius-2xl:  20px;
+  /* Radius - minimal square look */
+  --radius-xs:   1px;
+  --radius-sm:   2px;
+  --radius-md:   3px;
+  --radius-lg:   4px;
+  --radius-xl:   8px;
+  --radius-2xl:  12px;
   --radius-full: 9999px;
 
-  /* Shadows — light-mode appropriate */
-  --shadow-sm:     0 1px 2px rgba(0,0,0,0.06);
-  --shadow-card:   0 1px 3px rgba(0,0,0,0.07), 0 2px 8px rgba(0,0,0,0.04);
-  --shadow-md:     0 4px 12px rgba(0,0,0,0.08);
-  --shadow-lg:     0 8px 24px rgba(0,0,0,0.1);
-  --shadow-flyout: 2px 0 0 0 var(--border), 8px 0 32px rgba(0,0,0,0.08);
+  /* Shadows - flat luxury aesthetic */
+  --shadow-sm:     0 1px 2px rgba(0,0,0,0.03);
+  --shadow-card:   0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.02);
+  --shadow-md:     0 4px 20px rgba(0,0,0,0.03);
+  --shadow-lg:     0 12px 30px rgba(0,0,0,0.05);
+  --shadow-flyout: 1px 0 0 0 var(--border), 4px 0 24px rgba(0,0,0,0.04);
   --shadow-amber:  none;
   --shadow-cyan:   none;
   --shadow-blue:   none;
 
   /* Transitions */
-  --ease:            cubic-bezier(0.4, 0, 0.2, 1);
+  --ease:            cubic-bezier(0.25, 1, 0.5, 1);
   --ease-bounce:     cubic-bezier(0.34, 1.56, 0.64, 1);
-  --transition:      all 0.15s var(--ease);
-  --transition-slow: all 0.3s var(--ease);
+  --transition:      all 0.2s var(--ease);
+  --transition-slow: all 0.4s var(--ease);
 
   /* Z-layers */
   --z-base:    1;

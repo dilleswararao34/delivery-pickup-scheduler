@@ -60,6 +60,31 @@ function authMiddleware(req, res, next) {
   }
 }
 
+function optionalAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  const token = authHeader.slice(7);
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = {
+      userId: decoded.userId,
+      role:   decoded.role,
+      email:  decoded.email,
+      name:   decoded.name,
+      phone:  decoded.phone || '',
+      company: decoded.company || '',
+      billing_address: decoded.billing_address || '',
+    };
+    next();
+  } catch (err) {
+    next();
+  }
+}
+
 module.exports = authMiddleware;
+module.exports.optionalAuth = optionalAuth;
 module.exports.JWT_SECRET  = JWT_SECRET;
 module.exports.JWT_EXPIRES = JWT_EXPIRES;

@@ -75,4 +75,46 @@ async function checkEquipmentConflict(equipmentIds, deliveryDate, returnDate, ex
   return conflicts;
 }
 
-module.exports = { createAlert, getActiveAlerts, getAlertsByEntity, resolveAlert, checkEquipmentConflict };
+async function checkConflictsAndLock(client, equipmentIds, deliveryDate, returnDate, excludeBookingId = null) {
+  if (!equipmentIds || equipmentIds.length === 0) return;
+
+  // 1. Row-level lock on the requested equipment rows
+  await client.query('SELECT id FROM equipment WHERE id = ANY($1) FOR UPDATE', [equipmentIds]);
+
+  // 2. Query for overlapping active bookings
+  const query = `
+    SELECT b.booking_ref, e.name as equipment_name
+    FROM booking_equipment be
+    JOIN bookings b ON be.booking_id = b.id
+    JOIN equipment e ON be.equipment_id = e.id
+    WHERE be.equipment_id = ANY($1)
+      AND b.is_deleted = FALSE
+      AND b.status NOT IN ('ARCHIVED')
+      AND b.scheduled_delivery_date < $3
+      AND b.scheduled_return_date > $2
+      ${excludeBookingId ? 'AND b.id != $4' : ''}
+  `;
+  
+  const params = excludeBookingId
+    ? [equipmentIds, deliveryDate, returnDate, excludeBookingId]
+    : [equipmentIds, deliveryDate, returnDate];
+
+  const res = await client.query(query, params);
+
+  if (res.rows.length > 0) {
+    const list = res.rows.map(r => `${r.equipment_name} (reserved in booking ${r.booking_ref})`).join(', ');
+    const err = new Error(`Equipment conflict detected: ${list}`);
+    err.statusCode = 409;
+    err.code = 'EQUIPMENT_CONFLICT';
+    throw err;
+  }
+}
+
+module.exports = {
+  createAlert,
+  getActiveAlerts,
+  getAlertsByEntity,
+  resolveAlert,
+  checkEquipmentConflict,
+  checkConflictsAndLock,
+};

@@ -262,7 +262,7 @@ async function webhook(req, res, next) {
  */
 async function checkAndAutoConfirmBooking(bookingId) {
   try {
-    const invRes = await db.query("SELECT status FROM invoices WHERE booking_id = $1", [bookingId]);
+    const invRes = await db.query("SELECT status, payment_method FROM invoices WHERE booking_id = $1", [bookingId]);
     const depRes = await db.query("SELECT status FROM deposits WHERE booking_id = $1", [bookingId]);
     const bookingRes = await db.query("SELECT status, booking_ref FROM bookings WHERE id = $1", [bookingId]);
 
@@ -272,7 +272,7 @@ async function checkAndAutoConfirmBooking(bookingId) {
     // Only transition if currently in DRAFT or QUOTATION_REQUESTED
     if (!['DRAFT', 'QUOTATION_REQUESTED'].includes(booking.status)) return;
 
-    const invoicePaid = invRes.rows.length > 0 && invRes.rows[0].status === 'PAID';
+    const invoicePaid = invRes.rows.length > 0 && (invRes.rows[0].status === 'PAID' || invRes.rows[0].payment_method === 'COD');
     const depositHeld = depRes.rows.length === 0 || depRes.rows.every(d => d.status === 'HELD');
 
     if (invoicePaid && depositHeld) {
@@ -314,8 +314,121 @@ async function refundDeposit(req, res, next) {
   }
 }
 
+async function selectCODPayment(req, res, next) {
+  const { invoiceId } = req.body;
+  if (!invoiceId) {
+    return res.status(400).json({ success: false, error: 'Invoice ID is required.' });
+  }
+
+  try {
+    const invRes = await db.query(
+      `SELECT i.*, c.email AS customer_email, b.booking_ref, b.id AS booking_id
+       FROM invoices i
+       JOIN bookings b ON i.booking_id = b.id
+       JOIN customers c ON b.customer_id = c.id
+       WHERE i.id = $1`,
+      [invoiceId]
+    );
+
+    if (!invRes.rows.length) {
+      return res.status(404).json({ success: false, error: 'Invoice not found.' });
+    }
+
+    const invoice = invRes.rows[0];
+
+    // Check ownership for customer
+    if (req.user.role === 'CUSTOMER' && req.user.email.toLowerCase().trim() !== invoice.customer_email.toLowerCase().trim()) {
+      return res.status(403).json({ success: false, error: 'You are not authorized to modify this invoice.' });
+    }
+
+    await db.query(
+      "UPDATE invoices SET payment_method = 'COD', updated_at = NOW() WHERE id = $1",
+      [invoiceId]
+    );
+
+    // Re-evaluate rules
+    await ruleEngine.processBookingRules(invoice.booking_id);
+
+    // Check and auto-confirm
+    await checkAndAutoConfirmBooking(invoice.booking_id);
+
+    res.json({
+      success: true,
+      message: 'Payment method set to Cash on Delivery (COD) successfully.'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function markCODInvoicePaid(req, res, next) {
+  const { id } = req.params;
+  try {
+    const invRes = await db.query(
+      `SELECT i.*, c.name AS customer_name, c.email AS customer_email, b.booking_ref, b.id AS booking_id
+       FROM invoices i
+       JOIN bookings b ON i.booking_id = b.id
+       JOIN customers c ON b.customer_id = c.id
+       WHERE i.id = $1`,
+      [id]
+    );
+
+    if (!invRes.rows.length) {
+      return res.status(404).json({ success: false, error: 'Invoice not found.' });
+    }
+
+    const invoice = invRes.rows[0];
+
+    if (invoice.status === 'PAID') {
+      return res.status(400).json({ success: false, error: 'Invoice is already paid.' });
+    }
+
+    await db.query(
+      `UPDATE invoices
+       SET status = 'PAID', amount_paid = amount_due, updated_at = NOW()
+       WHERE id = $1`,
+      [id]
+    );
+
+    // Log audit activity
+    const activityLogService = require('../services/activityLog.service');
+    await activityLogService.logAction({
+      userId: req.user.userId,
+      userName: req.user.name,
+      userEmail: req.user.email,
+      action: 'MARK_COD_INVOICE_PAID',
+      entityType: 'INVOICE',
+      entityId: id,
+      details: `Marked COD Invoice ${invoice.invoice_ref} as PAID`
+    });
+
+    // Re-evaluate rules
+    await ruleEngine.processBookingRules(invoice.booking_id);
+
+    // Trigger payment email notification
+    const mockBooking = {
+      booking_ref: invoice.booking_ref,
+      customer_name: invoice.customer_name,
+      customer_email: invoice.customer_email
+    };
+    await notificationsService.sendPaymentConfirmation(mockBooking, {
+      invoice_ref: invoice.invoice_ref,
+      amount_paid: invoice.amount_due
+    });
+
+    res.json({
+      success: true,
+      message: 'COD Invoice marked as paid successfully.'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createOrder,
   webhook,
-  refundDeposit
+  refundDeposit,
+  selectCODPayment,
+  markCODInvoicePaid
 };

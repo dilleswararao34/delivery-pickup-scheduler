@@ -290,6 +290,45 @@ class NotificationService {
       await this.logDispatch('email', 'DEPOSIT_REFUND', recipient, subject, content);
     }
   }
+
+  /**
+   * Send employee welcome email
+   */
+  async sendEmployeeWelcome(email, name, tempPassword) {
+    const subject = `Welcome to the SD Digitals Team!`;
+    const content = `Hi ${name},\n\nYou have been registered as an employee at SD Digitals.\n\nYour temporary credentials are:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nPlease sign in and update your password at the Staff Portal:\nhttp://localhost:5173/staff/login\n\nWelcome aboard!`;
+    await this.logDispatch('email', 'EMPLOYEE_ONBOARDING', email, subject, content);
+  }
+
+  /**
+   * Send cancellation request notification
+   */
+  async sendCancellationRequested(booking) {
+    const subject = `SD Digitals - Cancellation Request Received: ${booking.booking_ref}`;
+    const content = `Hi ${booking.customer.name},\n\nWe have received your request to cancel booking ${booking.booking_ref}.\n\nSince your delivery is scheduled within 24 hours, our team will review the request and contact you shortly regarding the confirmation.`;
+    await this.logDispatch('email', 'CANCELLATION_REQUESTED', booking.customer.email, subject, content);
+  }
+
+  /**
+   * Send cancellation confirmation notification
+   */
+  async sendCancellationConfirmed(booking) {
+    const subject = `SD Digitals - Cancellation Confirmed: ${booking.booking_ref}`;
+    const content = `Hi ${booking.customer.name},\n\nYour booking ${booking.booking_ref} has been successfully cancelled and archived. Any payments made have been processed for refund to your original payment method.`;
+    await this.logDispatch('email', 'CANCELLATION_CONFIRMED', booking.customer.email, subject, content);
+  }
+
+  /**
+   * Send invoice refund confirmation email
+   */
+  async sendInvoiceRefundConfirmation(invoice, refundId) {
+    const subject = `SD Digitals - Invoice Refund Processed: ${invoice.invoice_ref}`;
+    const content = `Hi ${invoice.customer_name || 'Customer'},\n\nYour invoice payment of ₹${parseFloat(invoice.amount_paid).toFixed(2)} has been successfully refunded (Refund ID: ${refundId || 'N/A'}).\n\nThank you.`;
+    const recipient = invoice.customer_email;
+    if (recipient) {
+      await this.logDispatch('email', 'INVOICE_REFUND', recipient, subject, content);
+    }
+  }
 }
 
 module.exports = new NotificationService();

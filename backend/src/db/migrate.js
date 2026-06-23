@@ -20,7 +20,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 DO $$ BEGIN
   CREATE TYPE booking_status AS ENUM (
     'DRAFT','QUOTATION_REQUESTED','CONFIRMED','OUT_FOR_DELIVERY',
-    'DELIVERED','AWAITING_PICKUP','PICKED_UP_AND_RETURNED','ARCHIVED'
+    'DELIVERED','AWAITING_PICKUP','PICKED_UP_AND_RETURNED','ARCHIVED','CANCELLATION_REQUESTED'
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -322,6 +322,16 @@ async function migrate() {
       await client.query("ALTER TYPE user_role ADD VALUE 'EMPLOYEE'");
     }
 
+    // Ensure CANCELLATION_REQUESTED value is in booking_status
+    const bookingStatusCheck = await client.query(`
+      SELECT enumlabel FROM pg_enum
+      WHERE enumtypid = 'booking_status'::regtype AND enumlabel = 'CANCELLATION_REQUESTED'
+    `);
+    if (bookingStatusCheck.rows.length === 0) {
+      console.log('[migrate] Adding CANCELLATION_REQUESTED to booking_status enum...');
+      await client.query("ALTER TYPE booking_status ADD VALUE 'CANCELLATION_REQUESTED'");
+    }
+
     await client.query(DDL);
     
     // Schema alterations for Razorpay columns on existing tables
@@ -330,6 +340,8 @@ async function migrate() {
       ALTER TABLE invoices ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(100);
       ALTER TABLE invoices ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(100);
       ALTER TABLE invoices ADD COLUMN IF NOT EXISTS razorpay_signature VARCHAR(255);
+      ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50) DEFAULT 'RAZORPAY';
+      ALTER TABLE invoices ADD COLUMN IF NOT EXISTS razorpay_refund_id VARCHAR(100);
 
       ALTER TABLE deposits ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(100);
       ALTER TABLE deposits ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(100);

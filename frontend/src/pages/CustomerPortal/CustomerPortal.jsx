@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Camera, Sliders, Lightbulb, Mic, ZoomIn, Navigation, Briefcase,
+  ClipboardList, MessageSquare, RotateCcw, AlertTriangle, CheckCircle2, Package, X
+} from 'lucide-react';
 import NavBar from '../../components/shared/NavBar.jsx';
 import StatusBadge from '../../components/LiveLogisticsGrid/StatusBadge.jsx';
 import DeepViewFlyout from '../../components/DeepViewFlyout/DeepViewFlyout.jsx';
@@ -11,22 +15,16 @@ import { formatDate, getDurationDays, formatCurrency } from '../../utils/dateFor
 import './CustomerPortal.css';
 
 const EQUIPMENT_ICONS = {
-  'Cinema Camera': '🎥',
-  'Stabilizer':    '🎬',
-  'Lighting':      '💡',
-  'Audio':         '🎙',
-  'Lens':          '🔭',
-  'Drone':         '🚁',
-  'Accessories':   '🎒',
+  'Cinema Camera': Camera,
+  'Stabilizer': Sliders,
+  'Lighting': Lightbulb,
+  'Audio': Mic,
+  'Lens': ZoomIn,
+  'Drone': Navigation,
+  'Accessories': Briefcase,
 };
 
-const TABS = [
-  { id: 'bookings', label: '📋 My Bookings'    },
-  { id: 'browse',   label: '🎬 Browse Gear'    },
-  { id: 'quote',    label: '💬 Request Quote'  },
-  { id: 'returns',  label: '↩ Return Log'     },
-  { id: 'profile',  label: '👤 Profile'        },
-];
+const WELCOME_KEY = 'sd_welcome_shown';
 
 export default function CustomerPortal() {
   const { user, updateUser } = useAuth();
@@ -48,17 +46,30 @@ export default function CustomerPortal() {
     else navigate(`/customer/${tabId}`);
   };
 
-  const [bookings,   setBookings]   = useState([]);
-  const [equipment,  setEquipment]  = useState([]);
-  const [loadingB,   setLoadingB]   = useState(true);
-  const [loadingE,   setLoadingE]   = useState(true);
+  const [bookings, setBookings] = useState([]);
+  const [equipment, setEquipment] = useState([]);
+  const [loadingB, setLoadingB] = useState(true);
+  const [loadingE, setLoadingE] = useState(true);
+
+  // One-time welcome banner
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    if (!sessionStorage.getItem(WELCOME_KEY)) {
+      sessionStorage.setItem(WELCOME_KEY, '1');
+      setShowWelcome(true);
+      // Auto-dismiss after 4 seconds
+      const t = setTimeout(() => setShowWelcome(false), 4000);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   // Quote Form State
   const [showQuoteForm, setShowQuoteForm] = useState(false);
   const [quoteEquip, setQuoteEquip] = useState([]);
   const [quoteDelivery, setQuoteDelivery] = useState('');
   const [quoteReturn, setQuoteReturn] = useState('');
-  const [quoteAddress, setQuoteAddress] = useState('');
+  const [quoteAddress, setQuoteAddress] = useState(() => (user?.billing_address || ''));
   const [quoteNotes, setQuoteNotes] = useState('');
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [quoteSuccess, setQuoteSuccess] = useState(false);
@@ -92,6 +103,9 @@ export default function CustomerPortal() {
       setProfilePhone(user.phone || '');
       setProfileCompany(user.company || '');
       setProfileAddress(user.billing_address || '');
+      if (user.billing_address && !quoteAddress) {
+        setQuoteAddress(user.billing_address);
+      }
     }
   }, [user]);
 
@@ -132,7 +146,12 @@ export default function CustomerPortal() {
   };
 
   const handleSelectEquipmentForQuote = (eqId) => {
-    setQuoteEquip([eqId]);
+    const eq = equipment.find(e => (e.equipment_id || e.id) === eqId);
+    if (eq && eq.status === 'AVAILABLE') {
+      setQuoteEquip([eqId]);
+    } else {
+      setQuoteEquip([]);
+    }
     setShowQuoteForm(true);
     navigate('/customer/quote');
   };
@@ -166,27 +185,42 @@ export default function CustomerPortal() {
         scheduled_return_date: new Date(quoteReturn).toISOString(),
         notes: quoteNotes
       };
-      
+
       const res = await apiClient.createBooking(payload);
       const bookingId = res.data.booking_id;
-      
+
+      // If user profile has no billing address, save this address to their profile
+      if (!user.billing_address && quoteAddress) {
+        try {
+          await apiClient.updateProfile({
+            name: user.name,
+            phone: user.phone || '',
+            company: user.company || '',
+            billing_address: quoteAddress
+          });
+          updateUser({ billing_address: quoteAddress });
+        } catch (profileErr) {
+          console.error('Failed to auto-save address to profile:', profileErr);
+        }
+      }
+
       // Transition to QUOTATION_REQUESTED
       await apiClient.updateBookingStatus(bookingId, {
         new_status: 'QUOTATION_REQUESTED',
         changed_by: user.name,
         reason: 'Customer submitted quote request via portal'
       });
-      
+
       setQuoteSuccess(true);
       setShowQuoteForm(false);
-      
+
       // Clear form
       setQuoteEquip([]);
       setQuoteDelivery('');
       setQuoteReturn('');
       setQuoteAddress('');
       setQuoteNotes('');
-      
+
       // Refresh customer bookings
       const updated = await apiClient.getBookings();
       setBookings(updated.data || []);
@@ -218,13 +252,13 @@ export default function CustomerPortal() {
           actual_return_time: new Date().toISOString()
         }
       });
-      
+
       setReturnSuccess(true);
       setShowReturnForm(false);
       setReturnBookingId('');
       setReturnIssues('none');
       setReturnNotes('');
-      
+
       // Refresh customer bookings
       const updated = await apiClient.getBookings();
       setBookings(updated.data || []);
@@ -258,6 +292,47 @@ export default function CustomerPortal() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <NavBar />
 
+      {/* ── One-time Welcome Banner ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {showWelcome && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+            style={{
+              position: 'fixed',
+              top: '68px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1000,
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-active)',
+              borderRadius: 'var(--radius-xl)',
+              padding: 'var(--space-3) var(--space-5)',
+              boxShadow: 'var(--shadow-lg)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-3)',
+              minWidth: '280px',
+              maxWidth: '400px',
+            }}
+          >
+            <CheckCircle2 size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-primary)', flex: 1 }}>
+              Welcome back, <strong>{user?.name?.split(' ')[0]}</strong>!
+            </span>
+            <button
+              onClick={() => setShowWelcome(false)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 0, display: 'flex' }}
+              aria-label="Dismiss"
+            >
+              <X size={14} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div
         className="customer-portal"
         variants={pageTransition}
@@ -265,15 +340,6 @@ export default function CustomerPortal() {
         animate="animate"
         exit="exit"
       >
-        <div className="customer-portal__hero">
-          <h1 className="customer-portal__greeting">
-            Welcome back, <span>{user?.name?.split(' ')[0]}</span>
-          </h1>
-          <p className="customer-portal__sub">
-            Manage your equipment rentals, browse available gear, and request quotations.
-          </p>
-        </div>
-
         {/* Content */}
         <div className="customer-portal__content">
           <AnimatePresence mode="wait">
@@ -290,8 +356,8 @@ export default function CustomerPortal() {
                   {loadingB ? (
                     <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Loading your bookings…</p>
                   ) : bookings.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 'var(--space-10)', color: 'var(--text-tertiary)' }}>
-                      <div style={{ fontSize: 48, marginBottom: 'var(--space-3)' }}>📋</div>
+                    <div style={{ textAlign: 'center', padding: 'var(--space-10)', color: 'var(--text-tertiary)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <ClipboardList size={48} style={{ marginBottom: 'var(--space-3)', color: 'var(--brass)' }} />
                       <p>No bookings yet. Request a quote to get started.</p>
                     </div>
                   ) : (
@@ -339,30 +405,45 @@ export default function CustomerPortal() {
                   {loadingE ? (
                     <p style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Loading equipment…</p>
                   ) : (
-                    equipment.map((eq) => (
-                      <motion.div
-                        key={eq.equipment_id}
-                        className="cp-equipment-card"
-                        variants={cardEntrance}
-                        {...buttonTap}
-                        onClick={() => handleSelectEquipmentForQuote(eq.equipment_id || eq.id)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <div className="cp-equipment-card__image">
-                          {EQUIPMENT_ICONS[eq.category] || '📦'}
-                        </div>
-                        <div className="cp-equipment-card__body">
-                          <div className="cp-equipment-card__name">{eq.name}</div>
-                          <div className="cp-equipment-card__category">{eq.category} · {eq.brand}</div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span className="cp-equipment-card__rate">{formatCurrency(eq.rental_rate_per_day)}/day</span>
-                            <span className={`cp-equipment-card__status cp-equipment-card__status--${eq.status === 'AVAILABLE' ? 'available' : 'unavailable'}`}>
-                              {eq.status === 'AVAILABLE' ? '✓ Available' : eq.status.replace(/_/g, ' ')}
-                            </span>
+                    equipment.map((eq) => {
+                      const isAvailable = eq.status === 'AVAILABLE';
+                      return (
+                        <motion.div
+                          key={eq.equipment_id}
+                          className="cp-equipment-card"
+                          variants={cardEntrance}
+                          {...(isAvailable ? buttonTap : {})}
+                          onClick={isAvailable ? () => handleSelectEquipmentForQuote(eq.equipment_id || eq.id) : undefined}
+                          style={{
+                            cursor: isAvailable ? 'pointer' : 'default',
+                            opacity: isAvailable ? 1 : 0.55,
+                            filter: isAvailable ? 'none' : 'grayscale(40%)',
+                          }}
+                        >
+                          <div className="cp-equipment-card__image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100px', background: 'rgba(255,255,255,0.02)' }}>
+                            {(() => {
+                              const Icon = EQUIPMENT_ICONS[eq.category] || Package;
+                              return <Icon size={36} style={{ color: isAvailable ? 'var(--brass)' : 'var(--text-tertiary)' }} />;
+                            })()}
                           </div>
-                        </div>
-                      </motion.div>
-                    ))
+                          <div className="cp-equipment-card__body">
+                            <div className="cp-equipment-card__name">{eq.name}</div>
+                            <div className="cp-equipment-card__category">{eq.category} · {eq.brand}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span className="cp-equipment-card__rate">{formatCurrency(eq.rental_rate_per_day)}/day</span>
+                              <span className={`cp-equipment-card__status cp-equipment-card__status--${isAvailable ? 'available' : 'unavailable'}`}>
+                                {isAvailable ? 'Available' : eq.status.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                            {isAvailable && (
+                              <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+                                Click to request quote →
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })
                   )}
                 </motion.div>
               </motion.div>
@@ -373,8 +454,8 @@ export default function CustomerPortal() {
               <motion.div key="quote" variants={pageTransition} initial="initial" animate="animate" exit="exit">
                 <div style={{ maxWidth: 540, margin: '0 auto', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: 'var(--space-6)' }}>
                   {quoteSuccess ? (
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 48, marginBottom: 'var(--space-3)' }}>✓</div>
+                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <CheckCircle2 size={48} style={{ color: 'var(--green)', marginBottom: 'var(--space-3)' }} />
                       <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--green)', marginBottom: 'var(--space-3)' }}>Quote Submitted Successfully</h2>
                       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-5)' }}>
                         Your quotation request has been logged. An operator will review it shortly.
@@ -386,7 +467,7 @@ export default function CustomerPortal() {
                   ) : showQuoteForm ? (
                     <form onSubmit={handleQuoteSubmit} style={{ textAlign: 'left' }}>
                       <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}>New Quotation Request</h3>
-                      
+
                       <div className="form-group" style={{ position: 'relative' }}>
                         <label>Select Equipment *</label>
                         <div
@@ -439,7 +520,7 @@ export default function CustomerPortal() {
                               gap: 'var(--space-1)',
                             }}
                           >
-                            {equipment.map((eq) => {
+                            {equipment.filter((eq) => eq.status === 'AVAILABLE').map((eq) => {
                               const isChecked = quoteEquip.includes(eq.equipment_id || eq.id);
                               return (
                                 <label
@@ -538,8 +619,8 @@ export default function CustomerPortal() {
                       </div>
                     </form>
                   ) : (
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 48, marginBottom: 'var(--space-3)' }}>💬</div>
+                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <MessageSquare size={48} style={{ marginBottom: 'var(--space-3)', color: 'var(--brass)' }} />
                       <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }}>Request a Quotation</h2>
                       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-5)', lineHeight: 1.6 }}>
                         Select your required equipment and rental dates. An SD Digitals operator will respond within 2 business hours with a formal quote.
@@ -564,8 +645,8 @@ export default function CustomerPortal() {
               <motion.div key="returns" variants={pageTransition} initial="initial" animate="animate" exit="exit">
                 <div style={{ maxWidth: 540, margin: '0 auto', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: 'var(--space-6)' }}>
                   {returnSuccess ? (
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 48, marginBottom: 'var(--space-3)' }}>✓</div>
+                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <CheckCircle2 size={48} style={{ marginBottom: 'var(--space-3)', color: 'var(--green)' }} />
                       <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--green)', marginBottom: 'var(--space-3)' }}>Return Logged Successfully</h2>
                       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-5)' }}>
                         The equipment return has been logged. The operations status has updated to Returned.
@@ -577,7 +658,7 @@ export default function CustomerPortal() {
                   ) : showReturnForm ? (
                     <form onSubmit={handleReturnSubmit} style={{ textAlign: 'left' }}>
                       <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}>Log Equipment Return</h3>
-                      
+
                       <div className="form-group">
                         <label>Select Booking to Return *</label>
                         <select
@@ -655,12 +736,12 @@ export default function CustomerPortal() {
                     <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-1)' }}>My Profile & Settings</h2>
                     <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Manage your personal details and account password</p>
                   </div>
-                  
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-8)' }}>
                     {/* Personal Info */}
                     <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                       <h3 style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border)', paddingBottom: 'var(--space-2)' }}>Personal Details</h3>
-                      
+
                       <div className="form-group">
                         <label htmlFor="cust-email-input">Email Address (Read-only)</label>
                         <input
@@ -671,7 +752,7 @@ export default function CustomerPortal() {
                           style={{ background: 'var(--bg-tertiary)', cursor: 'not-allowed' }}
                         />
                       </div>
-                      
+
                       <div className="form-group">
                         <label htmlFor="cust-name-input">Full Name *</label>
                         <input
@@ -714,16 +795,16 @@ export default function CustomerPortal() {
                           onChange={(e) => setProfileAddress(e.target.value)}
                         />
                       </div>
-                      
+
                       <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
                         Save Details
                       </button>
                     </form>
-                    
+
                     {/* Security */}
                     <form onSubmit={handlePwdSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                       <h3 style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-primary)', borderBottom: '1px solid var(--border)', paddingBottom: 'var(--space-2)' }}>Security Settings</h3>
-                      
+
                       <div className="form-group">
                         <label htmlFor="cust-old-pwd-input">Current Password</label>
                         <input
@@ -734,7 +815,7 @@ export default function CustomerPortal() {
                           onChange={(e) => setPwdForm({ ...pwdForm, oldPassword: e.target.value })}
                         />
                       </div>
-                      
+
                       <div className="form-group">
                         <label htmlFor="cust-new-pwd-input">New Password</label>
                         <input
@@ -745,7 +826,7 @@ export default function CustomerPortal() {
                           onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
                         />
                       </div>
-                      
+
                       <div className="form-group">
                         <label htmlFor="cust-confirm-pwd-input">Confirm New Password</label>
                         <input
@@ -756,7 +837,7 @@ export default function CustomerPortal() {
                           onChange={(e) => setPwdForm({ ...pwdForm, confirmPassword: e.target.value })}
                         />
                       </div>
-                      
+
                       <button type="submit" className="btn btn-amber" style={{ alignSelf: 'flex-start' }}>
                         Change Password
                       </button>
@@ -797,8 +878,12 @@ export default function CustomerPortal() {
           boxShadow: 'var(--shadow-md)',
           zIndex: 9999,
           animation: 'slide-in-right 0.2s ease',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
         }}>
-          {toast.type === 'error' ? '⚠️ ' : '✅ '} {toast.text}
+          {toast.type === 'error' ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+          <span>{toast.text}</span>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { EQUIPMENT_STATUS_CONFIG } from '../../utils/statusColors.js';
 import { formatCurrency } from '../../utils/dateFormat.js';
 import './IntakeCommand.css';
@@ -103,8 +104,10 @@ export default function BookingForm({ equipment, onSubmit, mode = 'booking' }) {
   // ── Success state ────────────────────────────────────────────────────────
   if (success) {
     return (
-      <div className="intake__success">
-        <div className="intake__success-icon">✅</div>
+      <div className="intake__success" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div className="intake__success-icon">
+          <CheckCircle2 size={40} style={{ color: 'var(--brass)' }} />
+        </div>
         <h3 className="intake__success-title">Booking Created</h3>
         <p className="intake__success-ref">{success.booking_ref}</p>
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-5)' }}>
@@ -119,7 +122,12 @@ export default function BookingForm({ equipment, onSubmit, mode = 'booking' }) {
 
   return (
     <form id="booking-intake-form" onSubmit={handleSubmit} noValidate>
-      {errors.form && <div className="form-error" role="alert">⚠ {errors.form}</div>}
+      {errors.form && (
+        <div className="form-error" role="alert" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <AlertTriangle size={14} />
+          {errors.form}
+        </div>
+      )}
 
       {/* Customer Details */}
       <div className="form-section">
@@ -215,7 +223,10 @@ export default function BookingForm({ equipment, onSubmit, mode = 'booking' }) {
       <div className="form-section">
         <div className="form-section-label">Equipment Selection *</div>
         {errors.equipment && (
-          <div className="form-error" style={{ marginBottom: 'var(--space-3)', padding: '8px 12px' }}>⚠ {errors.equipment}</div>
+          <div className="form-error" style={{ marginBottom: 'var(--space-3)', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <AlertTriangle size={14} />
+            {errors.equipment}
+          </div>
         )}
         <div className="equipment-picker" role="listbox" aria-label="Select equipment items" aria-multiselectable="true">
           {(equipment || []).map((eq) => {

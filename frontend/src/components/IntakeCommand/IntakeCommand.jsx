@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
+import { ClipboardList, MessageSquare, AlertTriangle } from 'lucide-react';
 import BookingForm from './BookingForm.jsx';
 import './IntakeCommand.css';
 
 const MODES = [
-  { id: 'booking', label: '📋 New Booking',    desc: 'Full equipment hire booking intake' },
-  { id: 'quote',   label: '💬 Quotation',       desc: 'Request price quotation for client' },
-  { id: 'damage',  label: '⚠ Damage Report',    desc: 'Log equipment damage on return'    },
+  { id: 'booking', label: 'New Booking', Icon: ClipboardList, desc: 'Full equipment hire booking intake' },
+  { id: 'quote',   label: 'Quotation',   Icon: MessageSquare,  desc: 'Request price quotation for client' },
+  { id: 'damage',  label: 'Damage Report', Icon: AlertTriangle, desc: 'Log equipment damage on return'    },
 ];
 
 export default function IntakeCommand({ equipment, onBookingCreate }) {
@@ -49,8 +50,10 @@ export default function IntakeCommand({ equipment, onBookingCreate }) {
               className={`intake__mode-tab${mode === m.id ? ' intake__mode-tab--active' : ''}`}
               onClick={() => setMode(m.id)}
               title={m.desc}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              {m.label}
+              <m.Icon size={14} />
+              <span>{m.label}</span>
             </button>
           ))}
         </div>
@@ -64,7 +67,9 @@ export default function IntakeCommand({ equipment, onBookingCreate }) {
 
         {mode === 'quote' && (
           <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
-            <div style={{ fontSize: 40, marginBottom: 'var(--space-4)' }}>💬</div>
+            <div style={{ marginBottom: 'var(--space-4)', display: 'flex', justifyContent: 'center' }}>
+              <MessageSquare size={40} style={{ color: 'var(--brass)' }} />
+            </div>
             <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--amber)', marginBottom: 'var(--space-3)' }}>
               Quotation Mode
             </h3>
@@ -79,7 +84,9 @@ export default function IntakeCommand({ equipment, onBookingCreate }) {
 
         {mode === 'damage' && (
           <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
-            <div style={{ fontSize: 40, marginBottom: 'var(--space-4)' }}>⚠</div>
+            <div style={{ marginBottom: 'var(--space-4)', display: 'flex', justifyContent: 'center' }}>
+              <AlertTriangle size={40} style={{ color: 'var(--red)' }} />
+            </div>
             <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--red)', marginBottom: 'var(--space-3)' }}>
               Damage Report
             </h3>

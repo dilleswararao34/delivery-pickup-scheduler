@@ -12,6 +12,7 @@ const authRouter      = require('./src/routes/auth.routes');
 const operationsRouter = require('./src/routes/operations.routes');
 const paymentsRouter   = require('./src/routes/payments.routes');
 const authMiddleware  = require('./src/middleware/auth.middleware');
+const requireRole      = require('./src/middleware/requireRole');
 const errorHandler    = require('./src/middleware/errorHandler');
 
 
@@ -74,8 +75,8 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/auth',      authRouter);                             // Public auth
 app.use('/api/v1/payments',  paymentsRouter);                         // Payments & webhooks
 app.use('/api/v1/bookings',  authMiddleware, bookingsRouter);         // JWT protected
-app.use('/api/v1/equipment', authMiddleware, equipmentRouter);        // JWT protected
-app.use('/api/v1',           authMiddleware, operationsRouter);       // JWT protected operations
+app.use('/api/v1/equipment', equipmentRouter);                        // Selectively protected
+app.use('/api/v1',           authMiddleware, requireRole('ADMIN', 'EMPLOYEE'), operationsRouter); // Staff operations only
 
 
 

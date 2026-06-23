@@ -196,6 +196,10 @@ async function createBooking(payload) {
   try {
     await client.query('BEGIN');
 
+    // Check for equipment conflicts and lock equipment rows
+    const alertsService = require('./alerts.service');
+    await alertsService.checkConflictsAndLock(client, equipment_ids, scheduled_delivery_date, scheduled_return_date);
+
     // Upsert customer
     const custRes = await client.query(
       `INSERT INTO customers (name, email, phone, company)

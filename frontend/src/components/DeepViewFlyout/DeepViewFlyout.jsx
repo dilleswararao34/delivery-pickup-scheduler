@@ -1,5 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { 
+  Zap, Package, Sparkles, CreditCard, ShieldCheck, 
+  RotateCcw, Clock, Download, DollarSign, Check, AlertTriangle 
+} from 'lucide-react';
 import StatusBadge from '../LiveLogisticsGrid/StatusBadge.jsx';
 import { OperationsChronology } from './OperationsChronology.jsx';
 import { SkeletonFlyout } from '../shared/SkeletonLoader.jsx';
@@ -94,6 +98,34 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
       alert(`Refund failed: ${err.message}`);
     } finally {
       setRefundingId(null);
+    }
+  };
+
+  const handleSelectCOD = async (invoiceId) => {
+    try {
+      await apiClient.selectCODPayment(invoiceId);
+      alert('Payment method set to Cash on Delivery (COD).');
+      await refresh();
+      if (onStatusUpdate) {
+        await onStatusUpdate();
+      }
+    } catch (err) {
+      alert(`Failed to select COD: ${err.message}`);
+    }
+  };
+
+  const handleMarkCODPaid = async (invoiceId) => {
+    const confirmPaid = window.confirm('Mark this COD invoice as PAID?');
+    if (!confirmPaid) return;
+    try {
+      await apiClient.markCODInvoicePaid(invoiceId);
+      alert('COD Invoice marked as paid successfully!');
+      await refresh();
+      if (onStatusUpdate) {
+        await onStatusUpdate();
+      }
+    } catch (err) {
+      alert(`Failed to mark paid: ${err.message}`);
     }
   };
 
@@ -218,10 +250,10 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                 <div className="flyout-badge-container">
                   <StatusBadge status={booking.status} size="sm" />
                   <span className={`priority-badge priority-badge--${booking.priority?.toLowerCase() || 'medium'}`}>
-                    ⚡ {booking.priority || 'MEDIUM'}
+                    <Zap size={10} style={{ marginRight: '2px', display: 'inline-block', verticalAlign: 'middle' }} /> {booking.priority || 'MEDIUM'}
                   </span>
                   <span className="source-badge">
-                    📦 {booking.source || 'PORTAL'}
+                    <Package size={10} style={{ marginRight: '2px', display: 'inline-block', verticalAlign: 'middle' }} /> {booking.source || 'PORTAL'}
                   </span>
                 </div>
               </div>
@@ -289,7 +321,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                 <div className="flyout-section__title">Automated Analysis & Rules</div>
                 <div className="rule-card">
                   <div className="rule-card__summary">
-                    🤖 <strong>Summary:</strong> {booking.generated_summary}
+                    <Sparkles size={14} style={{ marginRight: '4px', display: 'inline-block', verticalAlign: 'middle', color: 'var(--color-brass)' }} /> <strong>Summary:</strong> {booking.generated_summary}
                   </div>
                   {booking.recommendations && booking.recommendations.length > 0 && (
                     <div style={{ marginBottom: 'var(--space-3)' }}>
@@ -453,6 +485,9 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                             <tr key={inv.id}>
                               <td>
                                 <div>{inv.invoice_ref}</div>
+                                <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+                                  Method: {inv.payment_method || 'RAZORPAY'}
+                                </div>
                                 {inv.razorpay_order_id && (
                                   <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                                     Order: {inv.razorpay_order_id}
@@ -468,24 +503,44 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                                 </span>
                               </td>
                               <td>
-                                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                                   {inv.status === 'UNPAID' && user?.role === 'CUSTOMER' && (
+                                    <>
+                                      <button
+                                        className="btn btn-xs btn-primary animate-pulse"
+                                        onClick={() => handlePay('invoice', inv)}
+                                        disabled={payingId === inv.id}
+                                        style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--green)', borderColor: 'var(--green)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      >
+                                        {payingId === inv.id ? <Clock size={10} className="animate-spin" /> : <><CreditCard size={10} /> Pay Rental</>}
+                                      </button>
+                                      {inv.payment_method !== 'COD' && (
+                                        <button
+                                          className="btn btn-xs btn-ghost"
+                                          onClick={() => handleSelectCOD(inv.id)}
+                                          style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--accent)', borderColor: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <DollarSign size={10} /> Pay COD
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                  {inv.status === 'UNPAID' && inv.payment_method === 'COD' && (user?.role === 'ADMIN' || user?.role === 'EMPLOYEE') && (
                                     <button
-                                      className="btn btn-xs btn-primary animate-pulse"
-                                      onClick={() => handlePay('invoice', inv)}
-                                      disabled={payingId === inv.id}
-                                      style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--green)', borderColor: 'var(--green)', cursor: 'pointer' }}
+                                      className="btn btn-xs btn-primary"
+                                      onClick={() => handleMarkCODPaid(inv.id)}
+                                      style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--green)', borderColor: 'var(--green)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                                     >
-                                      {payingId === inv.id ? '⏳' : '💳 Pay Rental'}
+                                      <Check size={10} /> Mark Paid (COD)
                                     </button>
                                   )}
                                   <button
                                     className="btn btn-xs btn-primary"
                                     disabled={!!downloadingInvoice[booking.booking_id]}
                                     onClick={() => handleDownloadInvoice(booking.booking_id, inv.invoice_ref)}
-                                    style={{ padding: '4px 8px', fontSize: '11px', minWidth: '70px', cursor: 'pointer' }}
+                                    style={{ padding: '4px 8px', fontSize: '11px', minWidth: '70px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                                   >
-                                    {downloadingInvoice[booking.booking_id] ? '⏳ ...' : '📥 PDF'}
+                                    {downloadingInvoice[booking.booking_id] ? '...' : <><Download size={10} /> PDF</>}
                                   </button>
                                 </div>
                               </td>
@@ -533,9 +588,9 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                                     className="btn btn-xs btn-primary animate-pulse"
                                     onClick={() => handlePay('deposit', dep)}
                                     disabled={payingId === dep.id}
-                                    style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--cyan)', borderColor: 'var(--cyan)', cursor: 'pointer' }}
+                                    style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--blue)', borderColor: 'var(--blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                                   >
-                                    {payingId === dep.id ? '⏳' : '🛡️ Pay Deposit'}
+                                    {payingId === dep.id ? <Clock size={10} className="animate-spin" /> : <><ShieldCheck size={10} /> Pay Deposit</>}
                                   </button>
                                 )}
                                 {dep.status === 'HELD' && (user?.role === 'ADMIN' || user?.role === 'EMPLOYEE') && (
@@ -543,9 +598,9 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                                     className="btn btn-xs btn-ghost"
                                     onClick={() => handleRefund(dep.id)}
                                     disabled={refundingId === dep.id}
-                                    style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--amber)', borderColor: 'var(--amber)', cursor: 'pointer' }}
+                                    style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--amber)', borderColor: 'var(--amber)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                                   >
-                                    {refundingId === dep.id ? '⏳' : '↩ Refund'}
+                                    {refundingId === dep.id ? <Clock size={10} className="animate-spin" /> : <><RotateCcw size={10} /> Refund</>}
                                   </button>
                                 )}
                               </td>
@@ -584,10 +639,10 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                       {!showDamageForm ? (
                         <button
                           className="btn btn-ghost btn-sm"
-                          style={{ width: '100%', borderColor: 'var(--red)', color: 'var(--red)' }}
+                          style={{ width: '100%', borderColor: 'var(--red)', color: 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                           onClick={() => setShowDamageForm(true)}
                         >
-                          ⚠ File New Damage Report
+                          <AlertTriangle size={12} /> File New Damage Report
                         </button>
                       ) : (
                         <form onSubmit={handleDamageSubmit} className="damage-logger-form">

@@ -4,6 +4,10 @@ import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import ProtectedRoute from './components/shared/ProtectedRoute.jsx';
 import LoginPage from './pages/LoginPage/LoginPage.jsx';
+import StaffLoginPage from './pages/StaffLoginPage/StaffLoginPage.jsx';
+import PublicCatalog from './pages/PublicCatalog/PublicCatalog.jsx';
+import TermsOfService from './pages/InfoPages/TermsOfService.jsx';
+import PrivacyPolicy from './pages/InfoPages/PrivacyPolicy.jsx';
 import Dashboard from './components/Dashboard/Dashboard.jsx';
 import CustomerPortal from './pages/CustomerPortal/CustomerPortal.jsx';
 
@@ -16,7 +20,14 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
 
-        {/* Public */}
+        {/* Public Catalog Landing Page */}
+        <Route path="/" element={<PublicCatalog />} />
+
+        {/* Public Info Pages */}
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+
+        {/* Customer Login / Signup */}
         <Route
           path="/login"
           element={
@@ -26,9 +37,17 @@ function AnimatedRoutes() {
           }
         />
 
+        {/* Staff-only secure login */}
+        <Route
+          path="/staff/login"
+          element={
+            isAuth
+              ? <Navigate to={isAdmin || isEmployee ? '/admin' : '/customer'} replace />
+              : <StaffLoginPage />
+          }
+        />
 
-
-        {/* Admin portal */}
+        {/* Admin/Staff portal */}
         <Route
           path="/admin/*"
           element={
@@ -45,16 +64,6 @@ function AnimatedRoutes() {
             <ProtectedRoute role="CUSTOMER">
               <CustomerPortal />
             </ProtectedRoute>
-          }
-        />
-
-        {/* Root redirect */}
-        <Route
-          path="/"
-          element={
-            isAuth
-              ? <Navigate to={isAdmin || isEmployee ? '/admin' : '/customer'} replace />
-              : <Navigate to="/login" replace />
           }
         />
 

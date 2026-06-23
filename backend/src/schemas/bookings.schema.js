@@ -57,13 +57,14 @@ const VALID_STATUSES = [
   'AWAITING_PICKUP',
   'PICKED_UP_AND_RETURNED',
   'ARCHIVED',
+  'CANCELLATION_REQUESTED',
 ];
 
 const updateStatusSchema = z.object({
   new_status: z.enum(VALID_STATUSES, {
     errorMap: () => ({ message: `new_status must be one of: ${VALID_STATUSES.join(', ')}` }),
   }),
-  changed_by: z.string().min(1).max(255),
+  changed_by: z.string().min(1).max(255).optional(),
   reason:     z.string().max(500).optional(),
   operations_update: z.object({
     driver_assigned:       z.string().max(120).optional(),

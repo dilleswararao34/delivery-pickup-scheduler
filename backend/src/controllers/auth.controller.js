@@ -180,6 +180,14 @@ async function createEmployee(req, res, next) {
 
     const employee = await authService.registerUser({ name, email, password, role: 'EMPLOYEE' });
     
+    // Dispatch onboarding welcome email with temporary password
+    try {
+      const notificationsService = require('../services/notifications.service');
+      await notificationsService.sendEmployeeWelcome(email, name, password);
+    } catch (mailErr) {
+      console.error('[AuthController] Failed to send onboarding welcome email:', mailErr.message);
+    }
+
     // Log audit activity
     await activityLogService.logAction({
       userId: req.user.userId,

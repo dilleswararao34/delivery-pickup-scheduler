@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { Search, Download, Loader2, Clock } from 'lucide-react';
 import BookingRow from './BookingRow.jsx';
 import { SkeletonGrid } from '../shared/SkeletonLoader.jsx';
 import EmptyState from '../shared/EmptyState.jsx';
@@ -9,9 +10,9 @@ import './LiveLogisticsGrid.css';
 
 const STATUS_FILTERS = [
   { label: 'All',        value: '' },
-  { label: '⚡ Live',   value: 'OUT_FOR_DELIVERY' },
+  { label: 'Live',       value: 'OUT_FOR_DELIVERY' },
   { label: 'Confirmed',  value: 'CONFIRMED' },
-  { label: 'Awaiting ↩', value: 'AWAITING_PICKUP' },
+  { label: 'Awaiting Return', value: 'AWAITING_PICKUP' },
   { label: 'Draft',      value: 'DRAFT' },
   { label: 'Quote',      value: 'QUOTATION_REQUESTED' },
   { label: 'Delivered',  value: 'DELIVERED' },
@@ -93,7 +94,9 @@ export default function LiveLogisticsGrid({
 
         <div className="live-grid__controls">
           <div className="live-grid__search-wrap">
-            <span className="live-grid__search-icon" aria-hidden="true">🔍</span>
+            <span className="live-grid__search-icon" aria-hidden="true">
+              <Search size={14} style={{ color: 'var(--text-tertiary)' }} />
+            </span>
             <input
               id="grid-search-input"
               type="search"
@@ -135,7 +138,17 @@ export default function LiveLogisticsGrid({
               borderRadius: 'var(--radius-md)'
             }}
           >
-            {exporting ? '⏳ ...' : '📥 Export CSV'}
+            {exporting ? (
+              <>
+                <Loader2 size={14} className="spinning" />
+                <span>Exporting...</span>
+              </>
+            ) : (
+              <>
+                <Download size={14} />
+                <span>Export CSV</span>
+              </>
+            )}
           </button>
         </div>
       </div>

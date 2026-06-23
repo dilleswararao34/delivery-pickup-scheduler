@@ -188,6 +188,14 @@ const apiClient = {
     return http.post(`/payments/deposits/${depositId}/refund`, { reason });
   },
 
+  async selectCODPayment(invoiceId) {
+    return http.post('/payments/select-cod', { invoiceId });
+  },
+
+  async markCODInvoicePaid(invoiceId) {
+    return http.post(`/payments/invoices/${invoiceId}/mark-paid`);
+  },
+
   // ─── Legacy api.* shape (backwards compat for existing hooks) ────────────
   get api() {
     return {

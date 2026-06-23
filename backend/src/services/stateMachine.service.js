@@ -5,13 +5,14 @@ const db = require('../config/db');
 // ─── State machine transition map ─────────────────────────────────────────────
 
 const ALLOWED_TRANSITIONS = {
-  DRAFT:                  ['QUOTATION_REQUESTED', 'ARCHIVED'],
-  QUOTATION_REQUESTED:    ['CONFIRMED', 'DRAFT', 'ARCHIVED'],
-  CONFIRMED:              ['OUT_FOR_DELIVERY', 'ARCHIVED'],
+  DRAFT:                  ['QUOTATION_REQUESTED', 'ARCHIVED', 'CANCELLATION_REQUESTED'],
+  QUOTATION_REQUESTED:    ['CONFIRMED', 'DRAFT', 'ARCHIVED', 'CANCELLATION_REQUESTED'],
+  CONFIRMED:              ['OUT_FOR_DELIVERY', 'ARCHIVED', 'CANCELLATION_REQUESTED'],
   OUT_FOR_DELIVERY:       ['DELIVERED'],
   DELIVERED:              ['AWAITING_PICKUP'],
   AWAITING_PICKUP:        ['PICKED_UP_AND_RETURNED'],
   PICKED_UP_AND_RETURNED: ['ARCHIVED'],
+  CANCELLATION_REQUESTED: ['ARCHIVED', 'CONFIRMED', 'DRAFT'],
   ARCHIVED:               [],
 };
 
@@ -83,7 +84,7 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
     // Guard: block CONFIRMED if invoice is UNPAID or deposit is PENDING/FAILED
     if (toStatus === 'CONFIRMED') {
       const invRes = await client.query(
-        "SELECT status FROM invoices WHERE booking_id = $1",
+        "SELECT status, payment_method FROM invoices WHERE booking_id = $1",
         [bookingId]
       );
       const depRes = await client.query(
@@ -91,7 +92,7 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
         [bookingId]
       );
 
-      const invoicePaid = invRes.rows.length > 0 && invRes.rows[0].status === 'PAID';
+      const invoicePaid = invRes.rows.length > 0 && (invRes.rows[0].status === 'PAID' || invRes.rows[0].payment_method === 'COD');
       const depositHeld = depRes.rows.length === 0 || depRes.rows.every(d => d.status === 'HELD');
 
       if (!invoicePaid) {
@@ -105,6 +106,23 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
         err.statusCode = 422;
         err.code = 'PENDING_DEPOSIT';
         throw err;
+      }
+
+      // Concurrency check: verify no overlapping bookings exist for the same equipment
+      const bookingDetails = await client.query(
+        "SELECT scheduled_delivery_date, scheduled_return_date FROM bookings WHERE id = $1",
+        [bookingId]
+      );
+      const equipRes = await client.query(
+        "SELECT equipment_id FROM booking_equipment WHERE booking_id = $1",
+        [bookingId]
+      );
+      const equipmentIds = equipRes.rows.map(r => r.equipment_id);
+
+      if (bookingDetails.rows.length > 0 && equipmentIds.length > 0) {
+        const { scheduled_delivery_date, scheduled_return_date } = bookingDetails.rows[0];
+        const alertsService = require('./alerts.service');
+        await alertsService.checkConflictsAndLock(client, equipmentIds, scheduled_delivery_date, scheduled_return_date, bookingId);
       }
     }
 
@@ -172,6 +190,48 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
         }
       }
     }
+    if (toStatus === 'ARCHIVED') {
+      // Release equipment back to AVAILABLE
+      await client.query(
+        `UPDATE equipment SET status = 'AVAILABLE'
+         WHERE id IN (SELECT equipment_id FROM booking_equipment WHERE booking_id = $1)`,
+        [bookingId]
+      );
+
+      // Automatically trigger Razorpay deposit refund if one exists and is HELD
+      const depRes = await client.query(
+        "SELECT id, amount, razorpay_payment_id FROM deposits WHERE booking_id = $1 AND status = 'HELD'",
+        [bookingId]
+      );
+      for (const dep of depRes.rows) {
+        if (dep.razorpay_payment_id) {
+          try {
+            console.log(`[stateMachine] Automatically triggering refund for deposit ${dep.id}...`);
+            const paymentsService = require('./payments.service');
+            await paymentsService.refundDeposit(dep.id, changedBy, 'Booking cancelled/archived', client);
+          } catch (refundErr) {
+            console.error(`[stateMachine] Refund for deposit ${dep.id} failed:`, refundErr.message);
+          }
+        }
+      }
+
+      // Automatically trigger Razorpay invoice refund if one exists, is PAID and payment_method = 'RAZORPAY'
+      const invRes = await client.query(
+        "SELECT id, amount_paid, razorpay_payment_id, payment_method FROM invoices WHERE booking_id = $1 AND status = 'PAID'",
+        [bookingId]
+      );
+      for (const inv of invRes.rows) {
+        if (inv.payment_method === 'RAZORPAY' && inv.razorpay_payment_id) {
+          try {
+            console.log(`[stateMachine] Automatically triggering refund for invoice ${inv.id}...`);
+            const paymentsService = require('./payments.service');
+            await paymentsService.refundInvoice(inv.id, changedBy, 'Booking cancelled/archived', client);
+          } catch (refundErr) {
+            console.error(`[stateMachine] Refund for invoice ${inv.id} failed:`, refundErr.message);
+          }
+        }
+      }
+    }
 
     // 7. Append status history record
     await client.query(
@@ -201,6 +261,10 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
           await notificationsService.sendFollowUp(fullBooking);
         } else if (toStatus === 'QUOTATION_REQUESTED') {
           await notificationsService.sendQuoteAcknowledgement(fullBooking);
+        } else if (toStatus === 'CANCELLATION_REQUESTED') {
+          await notificationsService.sendCancellationRequested(fullBooking);
+        } else if (toStatus === 'ARCHIVED') {
+          await notificationsService.sendCancellationConfirmed(fullBooking);
         }
       } catch (err) {
         console.error('[stateMachine] Notification dispatch failed:', err.message);

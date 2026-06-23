@@ -17,14 +17,14 @@ const pool = new Pool({
 // ─── Equipment Seed Data ──────────────────────────────────────────────────────
 
 const EQUIPMENT = [
-  { serial_number: 'SNY-FX3-0041',  name: 'Sony FX3 Cinema Rig',                  category: 'Cinema Camera',  brand: 'Sony',              model_number: 'ILME-FX3',    rental_rate_per_day: 185.00, replacement_value: 3799.00, status: 'AVAILABLE'     },
-  { serial_number: 'DJI-RS3P-0087', name: 'DJI Ronin RS3 Pro Gimbal',             category: 'Stabilizer',     brand: 'DJI',               model_number: 'RS 3 Pro',    rental_rate_per_day: 65.00,  replacement_value: 849.00,  status: 'AVAILABLE'     },
-  { serial_number: 'APT-600D-0023', name: 'Aputure 600d Light Storm',             category: 'Lighting',       brand: 'Aputure',           model_number: 'LS 600d Pro', rental_rate_per_day: 120.00, replacement_value: 1699.00, status: 'OUT_ON_HIRE'   },
-  { serial_number: 'ZEN-V3-0012',   name: 'Zhiyun WEEBILL-3S Gimbal',             category: 'Stabilizer',     brand: 'Zhiyun',            model_number: 'WEEBILL-3S',  rental_rate_per_day: 45.00,  replacement_value: 349.00,  status: 'AVAILABLE'     },
-  { serial_number: 'BMD-PCC6K-009', name: 'Blackmagic Pocket Cinema Camera 6K G2',category: 'Cinema Camera',  brand: 'Blackmagic Design', model_number: 'BMPCC6KG2',   rental_rate_per_day: 145.00, replacement_value: 1995.00, status: 'IN_MAINTENANCE'},
-  { serial_number: 'RDE-NTG5-0055', name: 'Rode NTG5 Shotgun Microphone Kit',     category: 'Audio',          brand: 'Rode',              model_number: 'NTG5 Kit',    rental_rate_per_day: 35.00,  replacement_value: 499.00,  status: 'AVAILABLE'     },
-  { serial_number: 'APT-120D-0031', name: 'Aputure NOVA P120c RGBWW Panel',       category: 'Lighting',       brand: 'Aputure',           model_number: 'NOVA P120c',  rental_rate_per_day: 95.00,  replacement_value: 1299.00, status: 'RESERVED'      },
-  { serial_number: 'DJI-M3E-0018',  name: 'DJI Mavic 3 Enterprise Drone Kit',     category: 'Drone / Aerial', brand: 'DJI',               model_number: 'Mavic 3E',    rental_rate_per_day: 250.00, replacement_value: 5499.00, status: 'AVAILABLE'     },
+  { serial_number: 'SNY-FX3-0041',  name: 'Sony FX3 Cinema Rig',                  category: 'Cinema Camera',  brand: 'Sony',              model_number: 'ILME-FX3',    rental_rate_per_day: 8000.00,  replacement_value: 350000.00, status: 'AVAILABLE'     },
+  { serial_number: 'DJI-RS3P-0087', name: 'DJI Ronin RS3 Pro Gimbal',             category: 'Stabilizer',     brand: 'DJI',               model_number: 'RS 3 Pro',    rental_rate_per_day: 2500.00,  replacement_value: 75000.00,  status: 'AVAILABLE'     },
+  { serial_number: 'APT-600D-0023', name: 'Aputure 600d Light Storm',             category: 'Lighting',       brand: 'Aputure',           model_number: 'LS 600d Pro', rental_rate_per_day: 4500.00,  replacement_value: 150000.00, status: 'OUT_ON_HIRE'   },
+  { serial_number: 'ZEN-V3-0012',   name: 'Zhiyun WEEBILL-3S Gimbal',             category: 'Stabilizer',     brand: 'Zhiyun',            model_number: 'WEEBILL-3S',  rental_rate_per_day: 1500.00,  replacement_value: 35000.00,  status: 'AVAILABLE'     },
+  { serial_number: 'BMD-PCC6K-009', name: 'Blackmagic Pocket Cinema Camera 6K G2',category: 'Cinema Camera',  brand: 'Blackmagic Design', model_number: 'BMPCC6KG2',   rental_rate_per_day: 6500.00,  replacement_value: 180000.00, status: 'IN_MAINTENANCE'},
+  { serial_number: 'RDE-NTG5-0055', name: 'Rode NTG5 Shotgun Microphone Kit',     category: 'Audio',          brand: 'Rode',              model_number: 'NTG5 Kit',    rental_rate_per_day: 1200.00,  replacement_value: 45000.00,  status: 'AVAILABLE'     },
+  { serial_number: 'APT-120D-0031', name: 'Aputure NOVA P120c RGBWW Panel',       category: 'Lighting',       brand: 'Aputure',           model_number: 'NOVA P120c',  rental_rate_per_day: 3500.00,  replacement_value: 100000.00, status: 'RESERVED'      },
+  { serial_number: 'DJI-M3E-0018',  name: 'DJI Mavic 3 Enterprise Drone Kit',     category: 'Drone / Aerial', brand: 'DJI',               model_number: 'Mavic 3E',    rental_rate_per_day: 10000.00, replacement_value: 500000.00, status: 'AVAILABLE'     },
 ];
 
 async function seed() {

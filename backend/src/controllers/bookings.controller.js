@@ -81,9 +81,63 @@ async function getBooking(req, res, next) {
 async function updateStatus(req, res, next) {
   try {
     const { id } = req.params;
-    const { new_status, changed_by, reason, operations_update } = req.body;
+    const { new_status, reason, operations_update } = req.body;
+    
+    // Derive changed_by from authenticated JWT session name/email
+    const changedBy = req.user.name || req.user.email;
 
-    const result = await stateMachine.transition(id, new_status, changed_by, reason, operations_update);
+    // Fetch the booking to verify ownership and timing
+    const booking = await bookingsService.getBookingById(id);
+
+    if (req.user.role === 'CUSTOMER') {
+      // 1. Check ownership: customer email in booking must match logged-in user email
+      if (booking.customer.email.toLowerCase().trim() !== req.user.email.toLowerCase().trim()) {
+        const err = new Error('You do not have permission to modify this booking.');
+        err.statusCode = 403;
+        err.code = 'FORBIDDEN_ACCESS';
+        return next(err);
+      }
+
+      // 2. Customers can only trigger cancellations on bookings that haven't reached OUT_FOR_DELIVERY yet
+      if (['OUT_FOR_DELIVERY', 'DELIVERED', 'AWAITING_PICKUP', 'PICKED_UP_AND_RETURNED', 'ARCHIVED', 'CANCELLATION_REQUESTED'].includes(booking.status)) {
+        const err = new Error(`Bookings in status ${booking.status} cannot be cancelled.`);
+        err.statusCode = 403;
+        err.code = 'CANCELLATION_BLOCKED';
+        return next(err);
+      }
+
+      // 3. Validate specific self-service cancellation transitions based on time
+      const hoursDiff = (new Date(booking.scheduled_delivery_date) - new Date()) / (1000 * 60 * 60);
+
+      if (new_status === 'ARCHIVED') {
+        if (hoursDiff <= 24) {
+          const err = new Error('Bookings scheduled for delivery within 24 hours cannot be cancelled immediately. Please submit a cancellation request instead.');
+          err.statusCode = 403;
+          err.code = 'CANCELLATION_RESTRICTED';
+          return next(err);
+        }
+      } else if (new_status === 'CANCELLATION_REQUESTED') {
+        if (hoursDiff > 24) {
+          const err = new Error('Bookings scheduled for delivery in more than 24 hours can be cancelled immediately. Please cancel directly.');
+          err.statusCode = 403;
+          err.code = 'CANCELLATION_RESTRICTED';
+          return next(err);
+        }
+      } else {
+        const err = new Error('Customers are only authorized to cancel bookings or submit cancellation requests.');
+        err.statusCode = 403;
+        err.code = 'FORBIDDEN_TRANSITION';
+        return next(err);
+      }
+    } else if (req.user.role !== 'ADMIN' && req.user.role !== 'EMPLOYEE') {
+      const err = new Error('You do not have permission to transition booking status.');
+      err.statusCode = 403;
+      err.code = 'FORBIDDEN';
+      return next(err);
+    }
+
+    // Process the transition
+    const result = await stateMachine.transition(id, new_status, changedBy, reason, operations_update);
     respond(res, 200, result);
   } catch (err) {
     next(err);

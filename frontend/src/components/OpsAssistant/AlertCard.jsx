@@ -8,11 +8,11 @@ export default function AlertCard({ alert, onDismiss }) {
   const { alert_id, id, priority, trigger_type, message, created_at } = alert;
   const alertId = alert_id || id;
 
-  const PRIORITY_ICONS = {
-    CRITICAL: '🔴',
-    HIGH:     '🟠',
-    MEDIUM:   '🔵',
-    LOW:      '⚪',
+  const PRIORITY_COLORS = {
+    CRITICAL: 'var(--red, #e06c75)',
+    HIGH:     'var(--orange, #d19a66)',
+    MEDIUM:   'var(--blue, #61afef)',
+    LOW:      'var(--graphite, #abb2bf)',
   };
 
   return (
@@ -28,8 +28,18 @@ export default function AlertCard({ alert, onDismiss }) {
       layout
     >
       <div className="alert-card__header">
-        <span className="alert-card__priority">
-          {PRIORITY_ICONS[priority]} {priority}
+        <span className="alert-card__priority" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span
+            className="alert-card__dot"
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: PRIORITY_COLORS[priority] || 'var(--text-secondary)',
+              display: 'inline-block'
+            }}
+          />
+          {priority}
         </span>
         {onDismiss && (
           <button
