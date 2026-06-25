@@ -109,7 +109,7 @@ export default function NavBar({ alertCount = 0 }) {
           {/* Brand */}
           <div 
             className="navbar__brand" 
-            onClick={() => navigate(isAdmin || isEmployee ? '/admin' : '/customer')} 
+            onClick={() => navigate(isAdmin || isEmployee ? '/admin' : '/customer/browse')} 
             role="link" 
             tabIndex={0} 
             aria-label="Go to home dashboard"

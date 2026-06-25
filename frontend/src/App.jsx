@@ -32,7 +32,7 @@ function AnimatedRoutes() {
           path="/login"
           element={
             isAuth
-              ? <Navigate to={isAdmin || isEmployee ? '/admin' : '/customer'} replace />
+              ? <Navigate to={isAdmin || isEmployee ? '/admin' : '/customer/browse'} replace />
               : <LoginPage />
           }
         />
@@ -42,7 +42,7 @@ function AnimatedRoutes() {
           path="/staff/login"
           element={
             isAuth
-              ? <Navigate to={isAdmin || isEmployee ? '/admin' : '/customer'} replace />
+              ? <Navigate to={isAdmin || isEmployee ? '/admin' : '/customer/browse'} replace />
               : <StaffLoginPage />
           }
         />

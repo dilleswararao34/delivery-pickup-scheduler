@@ -18,7 +18,7 @@ export default function ProtectedRoute({ children, role }) {
 
   // Dashboard access (role === 'ADMIN' represents either Admin or Employee)
   if (role === 'ADMIN' && !isAdmin && !isEmployee) {
-    return <Navigate to="/customer" replace />;
+    return <Navigate to="/customer/browse" replace />;
   }
 
   if (role === 'CUSTOMER' && !isCustomer && !isAdmin && !isEmployee) {

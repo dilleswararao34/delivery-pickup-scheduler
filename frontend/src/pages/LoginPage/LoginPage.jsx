@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { AlertTriangle } from 'lucide-react';
 import { loginCardEntrance, shakeError } from '../../utils/motionVariants.js';
 import apiClient from '../../services/apiClient.js';
 import './LoginPage.css';
@@ -30,7 +31,7 @@ export default function LoginPage() {
 
       login(data.accessToken, data.user);
 
-      const targetPath = (data.user.role === 'ADMIN' || data.user.role === 'EMPLOYEE') ? '/admin' : '/customer';
+      const targetPath = (data.user.role === 'ADMIN' || data.user.role === 'EMPLOYEE') ? '/admin' : '/customer/browse';
       navigate(targetPath, { replace: true });
     } catch (err) {
       setError(err.message || 'Google Sign-in failed. Please try again.');
@@ -106,7 +107,7 @@ export default function LoginPage() {
       const { accessToken, user } = data;
 
       login(accessToken, user);
-      const from = location.state?.from?.pathname || ((user.role === 'ADMIN' || user.role === 'EMPLOYEE') ? '/admin' : '/customer');
+      const from = location.state?.from?.pathname || ((user.role === 'ADMIN' || user.role === 'EMPLOYEE') ? '/admin' : '/customer/browse');
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.message || 'Authentication failed. Please check details.');
