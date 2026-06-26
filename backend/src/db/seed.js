@@ -33,9 +33,7 @@ async function seed() {
     console.log('[seed] Beginning seed transaction...');
     await client.query('BEGIN');
     
-    // Clear existing data to prevent unique key violations
-    console.log('[seed] Truncating tables...');
-    await client.query('TRUNCATE TABLE booking_equipment, booking_status_history, operations_logs, invoices, deposits, damage_reports, bookings, customers, equipment, users CASCADE');
+    // (Truncate removed so this script is safe to run on every startup)
 
     // ── Equipment ────────────────────────────────────────────────────────────
     const equipmentIds = {};

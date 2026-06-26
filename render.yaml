@@ -11,7 +11,7 @@ services:
     plan: free
     runtime: node
     buildCommand: npm install --workspace=backend
-    startCommand: node backend/server.js
+    startCommand: npm run setup --workspace=backend && node backend/server.js
     env: block
     envVars:
       - key: NODE_ENV
