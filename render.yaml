@@ -70,10 +70,11 @@ services:
         sync: false
 
   # 3. Static Site for React Frontend
-  - type: static
+  - type: web
     name: sd-digitals-frontend
+    runtime: static
     buildCommand: npm install --workspace=frontend && npm run build --workspace=frontend
-    publishPath: frontend/dist
+    staticPublishPath: frontend/dist
     envVars:
       - key: VITE_API_BASE_URL
         fromStack:
