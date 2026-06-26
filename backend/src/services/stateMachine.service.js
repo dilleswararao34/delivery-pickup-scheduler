@@ -18,7 +18,7 @@ const ALLOWED_TRANSITIONS = {
 
 // ─── Transition guards ────────────────────────────────────────────────────────
 
-function applyGuard(toStatus, opsLog) {
+function applyGuard(toStatus, opsLog, booking) {
   if (toStatus === 'OUT_FOR_DELIVERY') {
     if (!opsLog || !opsLog.driver_assigned) {
       const err = new Error('A driver must be assigned before dispatching equipment for delivery.');
@@ -33,6 +33,19 @@ function applyGuard(toStatus, opsLog) {
       throw err;
     }
   }
+
+  // 24-Hour Cancellation Cutoff Logic
+  if (toStatus === 'ARCHIVED' && ['CONFIRMED', 'QUOTATION_REQUESTED'].includes(booking.status)) {
+    const now = new Date();
+    const deliveryDate = new Date(booking.scheduled_delivery_date);
+    const hoursUntilDelivery = (deliveryDate - now) / (1000 * 60 * 60);
+
+    if (hoursUntilDelivery <= 24 && hoursUntilDelivery > 0) {
+      return 'CANCELLATION_REQUESTED';
+    }
+  }
+
+  return toStatus;
 }
 
 // ─── Core transition executor ─────────────────────────────────────────────────
@@ -45,7 +58,7 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
 
     // 1. Lock the booking row
     const bookingRes = await client.query(
-      'SELECT id, booking_ref, status FROM bookings WHERE id = $1 AND is_deleted = FALSE FOR UPDATE',
+      'SELECT id, booking_ref, status, scheduled_delivery_date FROM bookings WHERE id = $1 AND is_deleted = FALSE FOR UPDATE',
       [bookingId]
     );
 
@@ -79,7 +92,7 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
 
     // Apply guard — merge incoming update for the check
     const mergedOps = { ...opsLog, ...(operationsUpdate || {}) };
-    applyGuard(toStatus, mergedOps);
+    toStatus = applyGuard(toStatus, mergedOps, booking);
 
     // Guard: block CONFIRMED if invoice is UNPAID or deposit is PENDING/FAILED
     if (toStatus === 'CONFIRMED') {

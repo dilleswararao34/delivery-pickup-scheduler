@@ -43,9 +43,21 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: MAIN_ADMIN_EMAIL
-        value: admin@sddigitals.com
+        sync: false
       - key: MAIN_ADMIN_PASSWORD
-        value: Admin@1234
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        value: "SD Digitals <no-reply@sddigitals.in>"
+      - key: GEMINI_API_KEY
+        sync: false
       - key: FRONTEND_URL
         fromStack:
           name: sd-digitals-frontend
