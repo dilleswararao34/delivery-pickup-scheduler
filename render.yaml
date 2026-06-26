@@ -70,10 +70,8 @@ services:
         sync: false
 
   # 3. Static Site for React Frontend
-  - type: web
+  - type: static
     name: sd-digitals-frontend
-    plan: free
-    runtime: static
     buildCommand: npm install --workspace=frontend && npm run build --workspace=frontend
     publishPath: frontend/dist
     envVars:
