@@ -1,10 +1,10 @@
-services:
+databases:
   # 1. PostgreSQL Database Instance
-  - type: db
-    name: sd-digitals-db
+  - name: sd-digitals-db
     plan: free
     ipAllowList: [] # Allow connections only from services inside Render
 
+services:
   # 2. Express Backend API Service
   - type: web
     name: sd-digitals-backend-api
