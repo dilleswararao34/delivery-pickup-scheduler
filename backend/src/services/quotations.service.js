@@ -84,13 +84,13 @@ async function requestRevision(id, customerEmail, notes) {
   }
 
   if (quotation.status !== 'QUOTE_PROVIDED' && quotation.status !== 'PENDING_QUOTE') {
-    throw new Error(\`Cannot request revision for quotation in status \${quotation.status}\`);
+    throw new Error(`Cannot request revision for quotation in status ${quotation.status}`);
   }
 
   await db.query(
-    \`UPDATE quotation_requests 
+    `UPDATE quotation_requests 
      SET status = 'NEGOTIATING', notes_from_customer = $1, updated_at = NOW() 
-     WHERE id = $2\`,
+     WHERE id = $2`,
     [notes, id]
   );
 
@@ -107,15 +107,15 @@ async function sendRevisedQuote(id, adminEmail, newAmount, discountReason, admin
   const nextVersion = quotation.versions.length + 1;
 
   // Insert new version
-  await db.query(\`
+  await db.query(`
     INSERT INTO quotation_versions (
       quotation_request_id, version_number, quote_amount, breakdown, discount_reason, notes_from_admin, created_by
     ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-  \`, [id, nextVersion, newAmount, JSON.stringify(breakdown), discountReason, adminNotes, adminEmail]);
+  `, [id, nextVersion, newAmount, JSON.stringify(breakdown), discountReason, adminNotes, adminEmail]);
 
   // Update quotation request status
   await db.query(
-    \`UPDATE quotation_requests SET status = 'QUOTE_PROVIDED', updated_at = NOW() WHERE id = $1\`,
+    `UPDATE quotation_requests SET status = 'QUOTE_PROVIDED', updated_at = NOW() WHERE id = $1`,
     [id]
   );
 
@@ -127,7 +127,7 @@ async function sendRevisedQuote(id, adminEmail, newAmount, discountReason, admin
   };
   
   // We can just log the email for now or write a custom email method
-  console.log(\`Sending Quote Ready Email to \${quotation.customer_email} for amount \${newAmount}\`);
+  console.log(`Sending Quote Ready Email to ${quotation.customer_email} for amount ${newAmount}`);
 
   return { success: true, message: 'Revised quote sent' };
 }
@@ -155,49 +155,49 @@ async function acceptQuote(quotationId, versionId, customerEmail) {
     await client.query('BEGIN');
 
     // Mark version as accepted
-    await client.query(\`
+    await client.query(`
       UPDATE quotation_versions
       SET accepted_by_customer = TRUE, accepted_at = NOW()
       WHERE id = $1
-    \`, [versionId]);
+    `, [versionId]);
 
     // Mark quotation as accepted
-    await client.query(\`
+    await client.query(`
       UPDATE quotation_requests
       SET status = 'ACCEPTED', updated_at = NOW()
       WHERE id = $1
-    \`, [quotationId]);
+    `, [quotationId]);
 
     // Update booking status to CONFIRMED
-    await client.query(\`
+    await client.query(`
       UPDATE bookings
       SET status = 'CONFIRMED', updated_at = NOW()
       WHERE id = $1
-    \`, [quotation.booking_id]);
+    `, [quotation.booking_id]);
 
     // Log the transition
-    await client.query(\`
+    await client.query(`
       INSERT INTO booking_status_history (booking_id, from_status, to_status, changed_by, reason)
       VALUES ($1, $2, $3, $4, $5)
-    \`, [
+    `, [
       quotation.booking_id, quotation.booking_status, 'CONFIRMED', quotation.customer_name,
       'Customer accepted quotation version ' + version.version_number
     ]);
 
     // Update invoice amount
-    const invRes = await client.query(\`SELECT id FROM invoices WHERE booking_id = $1\`, [quotation.booking_id]);
+    const invRes = await client.query(`SELECT id FROM invoices WHERE booking_id = $1`, [quotation.booking_id]);
     
     if (invRes.rows.length > 0) {
-      await client.query(\`
+      await client.query(`
         UPDATE invoices
         SET amount_due = $1, updated_at = NOW()
         WHERE id = $2
-      \`, [version.quote_amount, invRes.rows[0].id]);
+      `, [version.quote_amount, invRes.rows[0].id]);
     } else {
-      await client.query(\`
+      await client.query(`
         INSERT INTO invoices (booking_id, invoice_ref, amount_due, status, due_at)
         VALUES ($1, $2, $3, 'UNPAID', NOW() + INTERVAL '1 day')
-      \`, [quotation.booking_id, \`INV-\${quotation.booking_ref.slice(3)}\`, version.quote_amount]);
+      `, [quotation.booking_id, `INV-${quotation.booking_ref.slice(3)}`, version.quote_amount]);
     }
 
     await client.query('COMMIT');
@@ -227,23 +227,23 @@ async function rejectQuote(quotationId, customerEmail) {
   try {
     await client.query('BEGIN');
 
-    await client.query(\`
+    await client.query(`
       UPDATE quotation_requests
       SET status = 'REJECTED', updated_at = NOW()
       WHERE id = $1
-    \`, [quotationId]);
+    `, [quotationId]);
 
     // Cancel booking
-    await client.query(\`
+    await client.query(`
       UPDATE bookings
       SET status = 'ARCHIVED', is_deleted = TRUE, updated_at = NOW()
       WHERE id = $1
-    \`, [quotation.booking_id]);
+    `, [quotation.booking_id]);
 
-    await client.query(\`
+    await client.query(`
       INSERT INTO booking_status_history (booking_id, from_status, to_status, changed_by, reason)
       VALUES ($1, $2, $3, $4, $5)
-    \`, [
+    `, [
       quotation.booking_id, quotation.booking_status, 'ARCHIVED', quotation.customer_name,
       'Customer rejected quotation'
     ]);
