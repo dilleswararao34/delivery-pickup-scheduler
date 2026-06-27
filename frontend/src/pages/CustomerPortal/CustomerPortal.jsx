@@ -432,10 +432,14 @@ export default function CustomerPortal() {
                           }}
                         >
                           <div className="cp-equipment-card__image">
-                            {(() => {
-                              const Icon = EQUIPMENT_ICONS[eq.category] || Package;
-                              return <Icon size={36} />;
-                            })()}
+                            {eq.image_url ? (
+                              <img src={eq.image_url} alt={eq.name} className="cp-equipment-card__img-element" />
+                            ) : (
+                              (() => {
+                                const Icon = EQUIPMENT_ICONS[eq.category] || Package;
+                                return <Icon size={36} />;
+                              })()
+                            )}
                             <span className={`cp-equipment-card__status-badge cp-equipment-card__status-badge--${isAvailable ? 'available' : 'unavailable'}`}>
                               {isAvailable ? '● Available' : '● Unavailable'}
                             </span>
