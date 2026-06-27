@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Menu, X, Activity, Calendar, ClipboardList, Package, 
   Users, UserCheck, History, BookOpen, Camera, 
-  MessageSquare, RotateCcw, LogOut, ChevronLeft, User, Bell
+  MessageSquare, RotateCcw, LogOut, ChevronLeft, User, Bell, FileText
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import './NavBar.css';
@@ -59,6 +59,7 @@ export default function NavBar({ alertCount = 0 }) {
     if (isAdmin) {
       links.push({ to: '/admin/employees',     label: 'Employees',   icon: <Users size={18} /> });
       links.push({ to: '/admin/customers',     label: 'Customers',   icon: <UserCheck size={18} /> });
+      links.push({ to: '/admin/quotations',    label: 'Quotations',  icon: <FileText size={18} /> });
       links.push({ to: '/admin/activity-logs', label: 'Audit Logs',  icon: <History size={18} /> });
     }
     links.push({ to: '/admin/profile', label: 'My Profile', icon: <User size={18} /> });

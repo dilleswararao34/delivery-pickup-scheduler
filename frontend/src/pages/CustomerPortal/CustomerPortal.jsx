@@ -14,6 +14,8 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { pageTransition, cardEntrance, staggerContainer, buttonTap } from '../../utils/motionVariants.js';
 import apiClient from '../../services/apiClient.js';
 import { formatDate, getDurationDays, formatCurrency } from '../../utils/dateFormat.js';
+import ProgressiveQuoteForm from './ProgressiveQuoteForm.jsx';
+import QuotationReviewModal from './QuotationReviewModal.jsx';
 import './CustomerPortal.css';
 
 const EQUIPMENT_ICONS = {
@@ -49,12 +51,17 @@ export default function CustomerPortal() {
   };
 
   const [bookings, setBookings] = useState([]);
+  const [quotations, setQuotations] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [loadingB, setLoadingB] = useState(true);
+  const [loadingQ, setLoadingQ] = useState(true);
   const [loadingE, setLoadingE] = useState(true);
 
   // One-time welcome banner
   const [showWelcome, setShowWelcome] = useState(false);
+
+  // Quote Review Modal
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
 
   useEffect(() => {
     if (!sessionStorage.getItem(WELCOME_KEY)) {
@@ -152,87 +159,35 @@ export default function CustomerPortal() {
     if (eq && eq.status === 'AVAILABLE') {
       setQuoteEquip([eqId]);
     } else {
-      setQuoteEquip([]);
-    }
     setShowQuoteForm(true);
     navigate('/customer/quote');
   };
 
-  const handleQuoteSubmit = async (e) => {
-    e.preventDefault();
-    if (quoteEquip.length === 0) {
-      window.alert('Please select at least one equipment item.');
-      return;
-    }
-    setQuoteSubmitting(true);
+  const handleQuoteSubmit = async (formData) => {
     try {
+      setQuoteSubmitting(true);
       const payload = {
+        equipment_ids: formData.equipment_ids,
+        scheduled_delivery_date: formData.delivery_date,
+        scheduled_return_date: formData.return_date,
+        location: { delivery_address: formData.address },
+        notes: formData.notes,
+        status: 'QUOTATION_REQUESTED',
         customer: {
           name: user.name,
           email: user.email,
-          phone: user.phone || '',
-          company: user.company || 'Self'
+          phone: user.phone || '9999999999',
+          company: user.company,
         },
-        creator: {
-          operator_name: user.name,
-          operator_email: user.email
-        },
-        equipment_ids: quoteEquip,
-        location: {
-          delivery_address: quoteAddress,
-          site_contact_name: user.name,
-          site_contact_phone: user.phone || ''
-        },
-        scheduled_delivery_date: new Date(quoteDelivery).toISOString(),
-        scheduled_return_date: new Date(quoteReturn).toISOString(),
-        notes: quoteNotes
+        creator: { operator_name: user.name, operator_email: user.email },
       };
-
-      const res = await apiClient.createBooking(payload);
-      const bookingId = res.data.booking_id;
-
-      // If user profile has no billing address, save this address to their profile
-      if (!user.billing_address && quoteAddress) {
-        try {
-          await apiClient.updateProfile({
-            name: user.name,
-            phone: user.phone || '',
-            company: user.company || '',
-            billing_address: quoteAddress
-          });
-          updateUser({ billing_address: quoteAddress });
-        } catch (profileErr) {
-          console.error('Failed to auto-save address to profile:', profileErr);
-        }
-      }
-
-      // Transition to QUOTATION_REQUESTED
-      await apiClient.updateBookingStatus(bookingId, {
-        new_status: 'QUOTATION_REQUESTED',
-        changed_by: user.name,
-        reason: 'Customer submitted quote request via portal'
-      });
-
+      await apiClient.createBooking(payload);
       setQuoteSuccess(true);
       setShowQuoteForm(false);
-
-      // Clear form
-      setQuoteEquip([]);
-      setQuoteDelivery('');
-      setQuoteReturn('');
-      setQuoteAddress('');
-      setQuoteNotes('');
-
-      // Refresh customer bookings
-      const updated = await apiClient.getBookings();
-      setBookings(updated.data || []);
+      fetchCustomerData(); // refresh bookings
     } catch (err) {
-      if (err.fields && Array.isArray(err.fields)) {
-        const details = err.fields.map((f) => `${f.field}: ${f.issue}`).join('\n');
-        window.alert(`Request validation failed:\n\n${details}`);
-      } else {
-        window.alert(err.message || 'Failed to submit quotation request');
-      }
+      console.error(err);
+      showToast('Failed to submit quote request', 'error');
     } finally {
       setQuoteSubmitting(false);
     }
@@ -262,8 +217,7 @@ export default function CustomerPortal() {
       setReturnNotes('');
 
       // Refresh customer bookings
-      const updated = await apiClient.getBookings();
-      setBookings(updated.data || []);
+      fetchCustomerData();
     } catch (err) {
       window.alert(err.message || 'Failed to submit return log');
     } finally {
@@ -272,9 +226,19 @@ export default function CustomerPortal() {
   };
 
   useEffect(() => {
-    apiClient.getBookings().then((res) => {
-      setBookings(res.data || []);
-    }).catch(() => setBookings([])).finally(() => setLoadingB(false));
+   const fetchCustomerData = async () => {
+    try {
+      const bRes = await apiClient.getBookings();
+      setBookings(bRes.data || []);
+      const qRes = await apiClient.getQuotations();
+      setQuotations(qRes.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };    fetchCustomerData().finally(() => {
+      setLoadingB(false);
+      setLoadingQ(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -283,12 +247,49 @@ export default function CustomerPortal() {
     }).catch(() => setEquipment([])).finally(() => setLoadingE(false));
   }, []);
 
-  useEffect(() => {
-    if (!isEquipDropdownOpen) return;
-    const handleOutsideClick = () => setIsEquipDropdownOpen(false);
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
-  }, [isEquipDropdownOpen]);
+  const handleAcceptQuote = async (quotationId, versionId) => {
+    try {
+      await apiClient.acceptQuote(quotationId, versionId);
+      setSelectedQuotation(null);
+      fetchCustomerData();
+      showToast('Quotation accepted! Booking confirmed.');
+    } catch (error) {
+      showToast('Failed to accept quotation', 'error');
+    }
+  };
+
+  const handleRejectQuote = async (quotationId) => {
+    try {
+      await apiClient.rejectQuote(quotationId);
+      setSelectedQuotation(null);
+      fetchCustomerData();
+      showToast('Quotation rejected.');
+    } catch (error) {
+      showToast('Failed to reject quotation', 'error');
+    }
+  };
+
+  const handleReviseQuote = async (quotationId, reason) => {
+    try {
+      await apiClient.reviseQuote(quotationId, reason);
+      setSelectedQuotation(null);
+      fetchCustomerData();
+      showToast('Revision request sent.');
+    } catch (error) {
+      showToast('Failed to send revision request', 'error');
+    }
+  };
+
+  const handleBookingClick = (b) => {
+    if (['QUOTATION_REQUESTED', 'PENDING_QUOTE', 'QUOTE_PROVIDED', 'NEGOTIATING', 'ACCEPTED', 'REJECTED'].includes(b.status)) {
+      const quote = quotations.find(q => q.booking_id === b.booking_id || q.booking_ref === b.booking_ref);
+      if (quote) {
+        setSelectedQuotation(quote);
+        return;
+      }
+    }
+    setSelectedFlyoutId(b.booking_id);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -372,7 +373,7 @@ export default function CustomerPortal() {
                         key={b.booking_id}
                         className="cp-booking-card"
                         variants={cardEntrance}
-                        onClick={() => setSelectedFlyoutId(b.booking_id)}
+                        onClick={() => handleBookingClick(b)}
                         style={{ cursor: 'pointer' }}
                         whileHover={{ scale: 1.01 }}
                       >
@@ -478,161 +479,7 @@ export default function CustomerPortal() {
                         Request Another Quote
                       </button>
                     </div>
-                  ) : showQuoteForm ? (
-                    <form onSubmit={handleQuoteSubmit} style={{ textAlign: 'left' }}>
-                      <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}>New Quotation Request</h3>
-
-                      <div className="form-group" style={{ position: 'relative' }}>
-                        <label>Select Equipment *</label>
-                        <div
-                          className="custom-select-trigger"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsEquipDropdownOpen(!isEquipDropdownOpen);
-                          }}
-                          style={{
-                            padding: '10px 14px',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius-lg)',
-                            background: 'var(--bg-tertiary)',
-                            color: quoteEquip.length > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            userSelect: 'none',
-                          }}
-                        >
-                          <span>
-                            {quoteEquip.length > 0
-                              ? `${quoteEquip.length} item(s) selected`
-                              : 'Choose equipment...'}
-                          </span>
-                          <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{isEquipDropdownOpen ? '▲' : '▼'}</span>
-                        </div>
-
-                        {isEquipDropdownOpen && (
-                          <div
-                            className="custom-select-dropdown"
-                            onClick={(e) => e.stopPropagation()}
-                            style={{
-                              position: 'absolute',
-                              top: '100%',
-                              left: 0,
-                              right: 0,
-                              zIndex: 10,
-                              background: 'var(--bg-secondary)',
-                              border: '1px solid var(--border)',
-                              borderRadius: 'var(--radius-lg)',
-                              boxShadow: 'var(--shadow-lg)',
-                              maxHeight: '200px',
-                              overflowY: 'auto',
-                              marginTop: 'var(--space-1)',
-                              padding: 'var(--space-2)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 'var(--space-1)',
-                            }}
-                          >
-                            {equipment.filter((eq) => eq.status === 'AVAILABLE').map((eq) => {
-                              const isChecked = quoteEquip.includes(eq.equipment_id || eq.id);
-                              return (
-                                <label
-                                  key={eq.equipment_id || eq.id}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 'var(--space-3)',
-                                    padding: 'var(--space-2) var(--space-3)',
-                                    borderRadius: 'var(--radius-md)',
-                                    cursor: 'pointer',
-                                    userSelect: 'none',
-                                    background: isChecked ? 'var(--bg-elevated)' : 'transparent',
-                                    transition: 'background 0.1s',
-                                  }}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(e) => {
-                                      const id = eq.equipment_id || eq.id;
-                                      if (e.target.checked) {
-                                        setQuoteEquip((prev) => [...prev, id]);
-                                      } else {
-                                        setQuoteEquip((prev) => prev.filter((item) => item !== id));
-                                      }
-                                    }}
-                                    style={{
-                                      accentColor: 'var(--accent)',
-                                      width: '16px',
-                                      height: '16px',
-                                      cursor: 'pointer',
-                                    }}
-                                  />
-                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ fontWeight: 500, color: 'var(--text-primary)', fontSize: 'var(--text-sm)', textAlign: 'left' }}>{eq.name}</span>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'left' }}>
-                                      {formatCurrency(eq.rental_rate_per_day)}/day · {eq.status.replace(/_/g, ' ')}
-                                    </span>
-                                  </div>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Delivery Date *</label>
-                          <input
-                            type="datetime-local"
-                            required
-                            value={quoteDelivery}
-                            onChange={(e) => setQuoteDelivery(e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label>Return Date *</label>
-                          <input
-                            type="datetime-local"
-                            required
-                            value={quoteReturn}
-                            onChange={(e) => setQuoteReturn(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="form-group">
-                        <label>Delivery Address *</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Full delivery address"
-                          value={quoteAddress}
-                          onChange={(e) => setQuoteAddress(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Special Instructions / Notes</label>
-                        <textarea
-                          placeholder="Any special handling request, site contacts etc."
-                          value={quoteNotes}
-                          onChange={(e) => setQuoteNotes(e.target.value)}
-                        />
-                      </div>
-
-                      <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-5)' }}>
-                        <button type="button" className="btn btn-ghost" onClick={() => setShowQuoteForm(false)}>
-                          Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={quoteSubmitting} style={{ flex: 1 }}>
-                          {quoteSubmitting ? 'Submitting...' : 'Submit Request'}
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
+                  ) : !showQuoteForm ? (
                     <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <MessageSquare size={48} style={{ marginBottom: 'var(--space-3)', color: 'var(--brass)' }} />
                       <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }}>Request a Quotation</h2>
@@ -903,6 +750,15 @@ export default function CustomerPortal() {
 
       {/* ── AI Chat Widget ─────────────────────────────────────────────────── */}
       <ChatWidget />
+      {selectedQuotation && (
+        <QuotationReviewModal 
+          quotation={selectedQuotation} 
+          onClose={() => setSelectedQuotation(null)}
+          onAccept={handleAcceptQuote}
+          onReject={handleRejectQuote}
+          onRevise={handleReviseQuote}
+        />
+      )}
     </div>
   );
 }

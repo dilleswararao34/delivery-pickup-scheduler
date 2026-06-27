@@ -11,6 +11,7 @@ import LiveLogisticsGrid from '../LiveLogisticsGrid/LiveLogisticsGrid.jsx';
 import IntakeCommand from '../IntakeCommand/IntakeCommand.jsx';
 import OpsAssistant from '../OpsAssistant/OpsAssistant.jsx';
 import DeepViewFlyout from '../DeepViewFlyout/DeepViewFlyout.jsx';
+import AdminQuotationsTab from './AdminQuotationsTab.jsx';
 import { useBookings } from '../../hooks/useBookings.js';
 import { useEquipment } from '../../hooks/useEquipment.js';
 import { useAlerts } from '../../hooks/useAlerts.js';
@@ -47,6 +48,8 @@ export default function Dashboard() {
     currentView = 'employees';
   } else if (location.pathname.endsWith('/customers')) {
     currentView = 'customers';
+  } else if (location.pathname.endsWith('/quotations')) {
+    currentView = 'quotations';
   } else if (location.pathname.endsWith('/activity-logs')) {
     currentView = 'activity-logs';
   } else if (location.pathname.endsWith('/profile')) {
@@ -605,6 +608,11 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ── Quotations ─────────────────────────────────────────────── */}
+        {currentView === 'quotations' && (
+          <AdminQuotationsTab />
+        )}
+
         {currentView === 'scheduler' && (
           <div className="card animate-in" style={{ padding: 'var(--space-6)', background: 'var(--bg-secondary)', width: '100%', minHeight: '500px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>
@@ -902,7 +910,7 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td style={{ padding: 'var(--space-4)', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: 'var(--space-2)' }}>
+                          <div style={{ inlineFlex: 'inline-flex', gap: 'var(--space-2)' }}>
                             <button
                               className={`btn btn-sm ${emp.is_active ? 'btn-ghost' : 'btn-primary'}`}
                               onClick={() => handleToggleEmpStatus(emp.user_id, emp.is_active)}

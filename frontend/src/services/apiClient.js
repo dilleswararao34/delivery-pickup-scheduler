@@ -90,6 +90,31 @@ const apiClient = {
     });
   },
 
+  // ── Quotations ─────────────────────────────────────────────────────────────
+  async getQuotations(params = {}) {
+    return http.get('/quotations', { params });
+  },
+
+  async getQuotation(id) {
+    return http.get(`/quotations/${id}`);
+  },
+
+  async reviseQuote(id, reason_for_revision) {
+    return http.post(`/quotations/${id}/revise`, { reason_for_revision });
+  },
+
+  async acceptQuote(id, version_id) {
+    return http.post(`/quotations/${id}/accept`, { version_id });
+  },
+
+  async rejectQuote(id) {
+    return http.post(`/quotations/${id}/reject`);
+  },
+
+  async sendRevisedQuote(id, payload) {
+    return http.post(`/quotations/${id}/admin/send-revised-quote`, payload);
+  },
+
   async downloadInvoicePDF(bookingId) {
     const token = localStorage.getItem(TOKEN_KEY);
     const headers = {};

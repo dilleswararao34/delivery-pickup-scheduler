@@ -103,6 +103,32 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
     }
   };
 
+  const handleMarkInvoicePaid = async (invoiceId) => {
+    const confirm = window.confirm('Manually mark this invoice as PAID?');
+    if (!confirm) return;
+    try {
+      await apiClient.markInvoicePaid(invoiceId);
+      alert('Invoice marked as paid.');
+      await refresh();
+      if (onStatusUpdate) await onStatusUpdate();
+    } catch (err) {
+      alert(`Failed: ${err.message}`);
+    }
+  };
+
+  const handleMarkDepositHeld = async (depositId) => {
+    const confirm = window.confirm('Manually mark this deposit as HELD?');
+    if (!confirm) return;
+    try {
+      await apiClient.markDepositHeld(depositId);
+      alert('Deposit marked as held.');
+      await refresh();
+      if (onStatusUpdate) await onStatusUpdate();
+    } catch (err) {
+      alert(`Failed: ${err.message}`);
+    }
+  };
+
   const handleSelectCOD = async (invoiceId) => {
     try {
       await apiClient.selectCODPayment(invoiceId);
@@ -527,13 +553,13 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                                       )}
                                     </>
                                   )}
-                                  {inv.status === 'UNPAID' && inv.payment_method === 'COD' && (user?.role === 'ADMIN' || user?.role === 'EMPLOYEE') && (
+                                  {inv.status === 'UNPAID' && (user?.role === 'ADMIN' || user?.role === 'EMPLOYEE') && (
                                     <button
                                       className="btn btn-xs btn-primary"
-                                      onClick={() => handleMarkCODPaid(inv.id)}
+                                      onClick={() => handleMarkInvoicePaid(inv.id)}
                                       style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--green)', borderColor: 'var(--green)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                                     >
-                                      <Check size={10} /> Mark Paid (COD)
+                                      <Check size={10} /> Mark Paid
                                     </button>
                                   )}
                                   <button
@@ -593,6 +619,15 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                                     style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--blue)', borderColor: 'var(--blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                                   >
                                     {payingId === dep.id ? <Clock size={10} className="animate-spin" /> : <><ShieldCheck size={10} /> Pay Deposit</>}
+                                  </button>
+                                )}
+                                {dep.status === 'PENDING' && (user?.role === 'ADMIN' || user?.role === 'EMPLOYEE') && (
+                                  <button
+                                    className="btn btn-xs btn-primary"
+                                    onClick={() => handleMarkDepositHeld(dep.id)}
+                                    style={{ padding: '4px 8px', fontSize: '11px', background: 'var(--green)', borderColor: 'var(--green)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    <Check size={10} /> Mark Held
                                   </button>
                                 )}
                                 {dep.status === 'HELD' && (user?.role === 'ADMIN' || user?.role === 'EMPLOYEE') && (

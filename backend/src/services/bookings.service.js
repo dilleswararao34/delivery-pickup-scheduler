@@ -256,6 +256,34 @@ async function createBooking(payload) {
     const ruleEngine = require('./ruleEngine.service');
     await ruleEngine.processBookingRules(booking.id, client);
 
+    if (status === 'QUOTATION_REQUESTED') {
+      const eqRatesRes = await client.query('SELECT SUM(rental_rate_per_day) as total_rate FROM equipment WHERE id = ANY($1)', [equipment_ids]);
+      const dailyRate = parseFloat(eqRatesRes.rows[0].total_rate || 0);
+      const days = Math.ceil((new Date(scheduled_return_date) - new Date(scheduled_delivery_date)) / (1000 * 60 * 60 * 24));
+      const initialAmount = dailyRate * (days || 1);
+
+      const qRes = await client.query(
+        `INSERT INTO quotation_requests (booking_id, customer_id, equipment_ids, scheduled_delivery_date, scheduled_return_date, initial_amount, notes_from_customer, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING_QUOTE')
+         RETURNING id`,
+        [booking.id, customerId, JSON.stringify(equipment_ids), scheduled_delivery_date, scheduled_return_date, initialAmount, notes || null]
+      );
+      const quotationId = qRes.rows[0].id;
+      
+      const breakdown = {
+        equipment_cost: initialAmount,
+        delivery_fee: 500, // standard delivery fee estimate
+        insurance: 0,
+        total: initialAmount + 500
+      };
+
+      await client.query(
+        `INSERT INTO quotation_versions (quotation_request_id, version_number, quote_amount, breakdown, created_by)
+         VALUES ($1, 1, $2, $3, 'SYSTEM')`,
+        [quotationId, breakdown.total, JSON.stringify(breakdown)]
+      );
+    }
+
     await client.query('COMMIT');
 
     // Fetch equipment names for response

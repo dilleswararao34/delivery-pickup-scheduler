@@ -361,7 +361,7 @@ async function selectCODPayment(req, res, next) {
   }
 }
 
-async function markCODInvoicePaid(req, res, next) {
+async function markInvoicePaid(req, res, next) {
   const { id } = req.params;
   try {
     const invRes = await db.query(
@@ -399,7 +399,7 @@ async function markCODInvoicePaid(req, res, next) {
       action: 'MARK_COD_INVOICE_PAID',
       entityType: 'INVOICE',
       entityId: id,
-      details: `Marked COD Invoice ${invoice.invoice_ref} as PAID`
+      details: `Marked Invoice ${invoice.invoice_ref} as PAID manually`
     });
 
     // Re-evaluate rules
@@ -418,7 +418,63 @@ async function markCODInvoicePaid(req, res, next) {
 
     res.json({
       success: true,
-      message: 'COD Invoice marked as paid successfully.'
+      message: 'Invoice marked as paid successfully.'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function markDepositHeld(req, res, next) {
+  const { id } = req.params;
+  try {
+    const depRes = await db.query(
+      `SELECT d.*, c.name AS customer_name, c.email AS customer_email, b.booking_ref, b.id AS booking_id
+       FROM deposits d
+       JOIN bookings b ON d.booking_id = b.id
+       JOIN customers c ON b.customer_id = c.id
+       WHERE d.id = $1`,
+      [id]
+    );
+
+    if (!depRes.rows.length) {
+      return res.status(404).json({ success: false, error: 'Deposit not found.' });
+    }
+
+    const deposit = depRes.rows[0];
+
+    if (deposit.status === 'HELD') {
+      return res.status(400).json({ success: false, error: 'Deposit is already held.' });
+    }
+
+    await db.query(
+      `UPDATE deposits
+       SET status = 'HELD', payment_method = 'MANUAL', held_at = NOW(), updated_at = NOW()
+       WHERE id = $1`,
+      [id]
+    );
+
+    // Log audit activity
+    const activityLogService = require('../services/activityLog.service');
+    await activityLogService.logAction({
+      userId: req.user.userId,
+      userName: req.user.name,
+      userEmail: req.user.email,
+      action: 'MARK_DEPOSIT_HELD',
+      entityType: 'DEPOSIT',
+      entityId: id,
+      details: `Marked Deposit for booking ${deposit.booking_ref} as HELD manually`
+    });
+
+    // Re-evaluate rules
+    await ruleEngine.processBookingRules(deposit.booking_id);
+
+    // Check and auto-confirm
+    await checkAndAutoConfirmBooking(deposit.booking_id);
+
+    res.json({
+      success: true,
+      message: 'Deposit marked as HELD successfully.'
     });
   } catch (err) {
     next(err);
@@ -430,5 +486,6 @@ module.exports = {
   webhook,
   refundDeposit,
   selectCODPayment,
-  markCODInvoicePaid
+  markInvoicePaid,
+  markDepositHeld
 };

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import ChatWidget from '../../components/ChatWidget/ChatWidget.jsx';
+import EquipmentDetailModal from './EquipmentDetailModal.jsx';
 import './PublicCatalog.css';
 
 // Category → icon mapping for image stubs
@@ -75,6 +76,7 @@ export default function PublicCatalog() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [categories, setCategories]     = useState([]);
   const [hoveredCard, setHoveredCard]   = useState(null);
+  const [selectedItemForModal, setSelectedItemForModal] = useState(null);
 
   const catalogRef = useRef(null);
   const catalogInView = useInView(catalogRef, { once: true, margin: '-60px' });
@@ -305,6 +307,8 @@ export default function PublicCatalog() {
                       whileHover={isAvailable ? { scale: 1.02, y: -4 } : {}}
                       onHoverStart={() => setHoveredCard(item.id)}
                       onHoverEnd={() => setHoveredCard(null)}
+                      onClick={() => setSelectedItemForModal(item)}
+                      style={{ cursor: 'pointer' }}
                     >
                       {/* Image stub with gradient and icon */}
                       <div className="item-card-image-stub">
@@ -334,11 +338,11 @@ export default function PublicCatalog() {
                             </span>
                           </div>
                           <button
-                            onClick={() => navigate('/login')}
+                            onClick={(e) => { e.stopPropagation(); navigate('/login'); }}
                             className={`item-book-btn ${!isAvailable ? 'item-book-btn--disabled' : ''}`}
                             disabled={!isAvailable}
                           >
-                            {isAvailable ? 'Book Now' : 'Unavailable'}
+                            {isAvailable ? 'View Details' : 'Unavailable'}
                           </button>
                         </div>
                       </div>
@@ -387,6 +391,12 @@ export default function PublicCatalog() {
       </footer>
 
       <ChatWidget />
+      {selectedItemForModal && (
+        <EquipmentDetailModal 
+          item={selectedItemForModal} 
+          onClose={() => setSelectedItemForModal(null)} 
+        />
+      )}
     </div>
   );
 }

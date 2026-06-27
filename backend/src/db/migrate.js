@@ -61,6 +61,13 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+  CREATE TYPE quotation_status AS ENUM (
+    'PENDING_QUOTE','QUOTE_PROVIDED','NEGOTIATING','ACCEPTED','REJECTED'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- ── Customers ─────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS customers (
   id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -237,6 +244,39 @@ CREATE TABLE IF NOT EXISTS damage_reports (
 CREATE INDEX IF NOT EXISTS idx_damage_reports_booking ON damage_reports (booking_id);
 CREATE INDEX IF NOT EXISTS idx_damage_reports_equip   ON damage_reports (equipment_id);
 
+-- ── Quotation Requests ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS quotation_requests (
+  id                      UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id              UUID             NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  customer_id             UUID             NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  equipment_ids           JSONB            NOT NULL,
+  scheduled_delivery_date TIMESTAMPTZ      NOT NULL,
+  scheduled_return_date   TIMESTAMPTZ      NOT NULL,
+  initial_amount          NUMERIC(10,2)    DEFAULT 0,
+  status                  quotation_status NOT NULL DEFAULT 'PENDING_QUOTE',
+  notes_from_customer     TEXT,
+  requested_at            TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+  updated_at              TIMESTAMPTZ      NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_quotation_requests_booking ON quotation_requests (booking_id);
+CREATE INDEX IF NOT EXISTS idx_quotation_requests_customer ON quotation_requests (customer_id);
+
+-- ── Quotation Versions ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS quotation_versions (
+  id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  quotation_request_id UUID          NOT NULL REFERENCES quotation_requests(id) ON DELETE CASCADE,
+  version_number       INTEGER       NOT NULL DEFAULT 1,
+  quote_amount         NUMERIC(10,2) NOT NULL,
+  breakdown            JSONB         NOT NULL,
+  discount_reason      VARCHAR(255),
+  notes_from_admin     TEXT,
+  created_by           VARCHAR(255)  NOT NULL,
+  created_at           TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  accepted_by_customer BOOLEAN,
+  accepted_at          TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_quotation_versions_req ON quotation_versions (quotation_request_id);
+
 -- ── Shared updated_at trigger ─────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $func$
@@ -252,6 +292,7 @@ DROP TRIGGER IF EXISTS trg_ops_logs_updated_at  ON operations_logs;
 DROP TRIGGER IF EXISTS trg_invoices_updated_at  ON invoices;
 DROP TRIGGER IF EXISTS trg_deposits_updated_at  ON deposits;
 DROP TRIGGER IF EXISTS trg_damage_reports_updated_at ON damage_reports;
+DROP TRIGGER IF EXISTS trg_quotation_requests_updated_at ON quotation_requests;
 
 CREATE TRIGGER trg_bookings_updated_at  BEFORE UPDATE ON bookings        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_equipment_updated_at BEFORE UPDATE ON equipment       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -259,6 +300,7 @@ CREATE TRIGGER trg_ops_logs_updated_at  BEFORE UPDATE ON operations_logs FOR EAC
 CREATE TRIGGER trg_invoices_updated_at  BEFORE UPDATE ON invoices        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_deposits_updated_at  BEFORE UPDATE ON deposits        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_damage_reports_updated_at BEFORE UPDATE ON damage_reports FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_quotation_requests_updated_at BEFORE UPDATE ON quotation_requests FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ── User Role Enum ─────────────────────────────────────────────────────────────
 DO $$ BEGIN
