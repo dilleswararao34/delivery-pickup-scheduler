@@ -11,9 +11,7 @@ export default function EquipmentDetailModal({ item, onClose }) {
   const isAvailable = item.status === 'AVAILABLE';
 
   const handleQuoteRequest = () => {
-    // Navigate to a dedicated quote request page or open another modal
-    // For now, we'll navigate to login (or /quote if implemented)
-    navigate('/login');
+    navigate('/customer/quote', { state: { preselect: item.id } });
   };
 
   return (

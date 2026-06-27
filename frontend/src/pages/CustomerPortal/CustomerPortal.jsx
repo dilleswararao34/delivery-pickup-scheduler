@@ -111,6 +111,15 @@ export default function CustomerPortal() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (location.state?.preselect) {
+      setQuoteEquip([location.state.preselect]);
+      setShowQuoteForm(true);
+      // Clear state so it doesn't re-trigger on subsequent renders
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -158,9 +167,8 @@ export default function CustomerPortal() {
     navigate('/customer/quote');
   };
 
-  const handleQuoteSubmit = async (e) => {
-    e.preventDefault();
-    if (quoteEquip.length === 0) {
+  const handleQuoteSubmit = async (quoteData) => {
+    if (!quoteData.equipment_ids || quoteData.equipment_ids.length === 0) {
       window.alert('Please select at least one equipment item.');
       return;
     }
@@ -177,30 +185,30 @@ export default function CustomerPortal() {
           operator_name: user.name,
           operator_email: user.email
         },
-        equipment_ids: quoteEquip,
+        equipment_ids: quoteData.equipment_ids,
         location: {
-          delivery_address: quoteAddress,
+          delivery_address: quoteData.address,
           site_contact_name: user.name,
           site_contact_phone: user.phone || ''
         },
-        scheduled_delivery_date: new Date(quoteDelivery).toISOString(),
-        scheduled_return_date: new Date(quoteReturn).toISOString(),
-        notes: quoteNotes
+        scheduled_delivery_date: new Date(quoteData.delivery_date).toISOString(),
+        scheduled_return_date: new Date(quoteData.return_date).toISOString(),
+        notes: quoteData.notes
       };
 
       const res = await apiClient.createBooking(payload);
       const bookingId = res.data.booking_id;
 
       // If user profile has no billing address, save this address to their profile
-      if (!user.billing_address && quoteAddress) {
+      if (!user.billing_address && quoteData.address) {
         try {
           await apiClient.updateProfile({
             name: user.name,
             phone: user.phone || '',
             company: user.company || '',
-            billing_address: quoteAddress
+            billing_address: quoteData.address
           });
-          updateUser({ billing_address: quoteAddress });
+          updateUser({ billing_address: quoteData.address });
         } catch (profileErr) {
           console.error('Failed to auto-save address to profile:', profileErr);
         }
@@ -218,10 +226,6 @@ export default function CustomerPortal() {
 
       // Clear form
       setQuoteEquip([]);
-      setQuoteDelivery('');
-      setQuoteReturn('');
-      setQuoteAddress('');
-      setQuoteNotes('');
 
       // Refresh customer bookings
       const updated = await apiClient.getBookings();
@@ -484,9 +488,11 @@ export default function CustomerPortal() {
                     </div>
                   ) : showQuoteForm ? (
                     <ProgressiveQuoteForm 
-                      equipment={equipment} 
-                      onCancel={() => setShowQuoteForm(false)} 
-                      onSubmitSuccess={() => { setShowQuoteForm(false); setQuoteSuccess(true); }} 
+                      equipment={equipment}
+                      initialSelectedEquip={quoteEquip}
+                      isSubmitting={quoteSubmitting}
+                      onClose={() => setShowQuoteForm(false)} 
+                      onSubmit={handleQuoteSubmit} 
                     />
                   ) : (
                     <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
