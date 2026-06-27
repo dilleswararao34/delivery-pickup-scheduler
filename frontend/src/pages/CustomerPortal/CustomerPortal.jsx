@@ -14,8 +14,6 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { pageTransition, cardEntrance, staggerContainer, buttonTap } from '../../utils/motionVariants.js';
 import apiClient from '../../services/apiClient.js';
 import { formatDate, getDurationDays, formatCurrency } from '../../utils/dateFormat.js';
-import ProgressiveQuoteForm from './ProgressiveQuoteForm.jsx';
-import QuotationReviewModal from './QuotationReviewModal.jsx';
 import './CustomerPortal.css';
 
 const EQUIPMENT_ICONS = {
@@ -51,17 +49,12 @@ export default function CustomerPortal() {
   };
 
   const [bookings, setBookings] = useState([]);
-  const [quotations, setQuotations] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [loadingB, setLoadingB] = useState(true);
-  const [loadingQ, setLoadingQ] = useState(true);
   const [loadingE, setLoadingE] = useState(true);
 
   // One-time welcome banner
   const [showWelcome, setShowWelcome] = useState(false);
-
-  // Quote Review Modal
-  const [selectedQuotation, setSelectedQuotation] = useState(null);
 
   useEffect(() => {
     if (!sessionStorage.getItem(WELCOME_KEY)) {
@@ -159,35 +152,87 @@ export default function CustomerPortal() {
     if (eq && eq.status === 'AVAILABLE') {
       setQuoteEquip([eqId]);
     } else {
+      setQuoteEquip([]);
+    }
     setShowQuoteForm(true);
     navigate('/customer/quote');
   };
 
-  const handleQuoteSubmit = async (formData) => {
+  const handleQuoteSubmit = async (e) => {
+    e.preventDefault();
+    if (quoteEquip.length === 0) {
+      window.alert('Please select at least one equipment item.');
+      return;
+    }
+    setQuoteSubmitting(true);
     try {
-      setQuoteSubmitting(true);
       const payload = {
-        equipment_ids: formData.equipment_ids,
-        scheduled_delivery_date: formData.delivery_date,
-        scheduled_return_date: formData.return_date,
-        location: { delivery_address: formData.address },
-        notes: formData.notes,
-        status: 'QUOTATION_REQUESTED',
         customer: {
           name: user.name,
           email: user.email,
-          phone: user.phone || '9999999999',
-          company: user.company,
+          phone: user.phone || '',
+          company: user.company || 'Self'
         },
-        creator: { operator_name: user.name, operator_email: user.email },
+        creator: {
+          operator_name: user.name,
+          operator_email: user.email
+        },
+        equipment_ids: quoteEquip,
+        location: {
+          delivery_address: quoteAddress,
+          site_contact_name: user.name,
+          site_contact_phone: user.phone || ''
+        },
+        scheduled_delivery_date: new Date(quoteDelivery).toISOString(),
+        scheduled_return_date: new Date(quoteReturn).toISOString(),
+        notes: quoteNotes
       };
-      await apiClient.createBooking(payload);
+
+      const res = await apiClient.createBooking(payload);
+      const bookingId = res.data.booking_id;
+
+      // If user profile has no billing address, save this address to their profile
+      if (!user.billing_address && quoteAddress) {
+        try {
+          await apiClient.updateProfile({
+            name: user.name,
+            phone: user.phone || '',
+            company: user.company || '',
+            billing_address: quoteAddress
+          });
+          updateUser({ billing_address: quoteAddress });
+        } catch (profileErr) {
+          console.error('Failed to auto-save address to profile:', profileErr);
+        }
+      }
+
+      // Transition to QUOTATION_REQUESTED
+      await apiClient.updateBookingStatus(bookingId, {
+        new_status: 'QUOTATION_REQUESTED',
+        changed_by: user.name,
+        reason: 'Customer submitted quote request via portal'
+      });
+
       setQuoteSuccess(true);
       setShowQuoteForm(false);
-      fetchCustomerData(); // refresh bookings
+
+      // Clear form
+      setQuoteEquip([]);
+      setQuoteDelivery('');
+      setQuoteReturn('');
+      setQuoteAddress('');
+      setQuoteNotes('');
+
+      // Refresh customer bookings
+      const updated = await apiClient.getBookings();
+      setBookings(updated.data || []);
     } catch (err) {
-      console.error(err);
-      showToast('Failed to submit quote request', 'error');
+      if (err.fields && Array.isArray(err.fields)) {
+        const details = err.fields.map((f) => `${f.field}: ${f.issue}`).join('\n');
+        window.alert(`Request validation failed:\n\n${details}`);
+      } else {
+        window.alert(err.message || 'Failed to submit quotation request');
+      }
     } finally {
       setQuoteSubmitting(false);
     }
@@ -217,7 +262,8 @@ export default function CustomerPortal() {
       setReturnNotes('');
 
       // Refresh customer bookings
-      fetchCustomerData();
+      const updated = await apiClient.getBookings();
+      setBookings(updated.data || []);
     } catch (err) {
       window.alert(err.message || 'Failed to submit return log');
     } finally {
@@ -226,19 +272,9 @@ export default function CustomerPortal() {
   };
 
   useEffect(() => {
-   const fetchCustomerData = async () => {
-    try {
-      const bRes = await apiClient.getBookings();
-      setBookings(bRes.data || []);
-      const qRes = await apiClient.getQuotations();
-      setQuotations(qRes.data || []);
-    } catch (err) {
-      console.error(err);
-    }
-  };    fetchCustomerData().finally(() => {
-      setLoadingB(false);
-      setLoadingQ(false);
-    });
+    apiClient.getBookings().then((res) => {
+      setBookings(res.data || []);
+    }).catch(() => setBookings([])).finally(() => setLoadingB(false));
   }, []);
 
   useEffect(() => {
@@ -247,49 +283,12 @@ export default function CustomerPortal() {
     }).catch(() => setEquipment([])).finally(() => setLoadingE(false));
   }, []);
 
-  const handleAcceptQuote = async (quotationId, versionId) => {
-    try {
-      await apiClient.acceptQuote(quotationId, versionId);
-      setSelectedQuotation(null);
-      fetchCustomerData();
-      showToast('Quotation accepted! Booking confirmed.');
-    } catch (error) {
-      showToast('Failed to accept quotation', 'error');
-    }
-  };
-
-  const handleRejectQuote = async (quotationId) => {
-    try {
-      await apiClient.rejectQuote(quotationId);
-      setSelectedQuotation(null);
-      fetchCustomerData();
-      showToast('Quotation rejected.');
-    } catch (error) {
-      showToast('Failed to reject quotation', 'error');
-    }
-  };
-
-  const handleReviseQuote = async (quotationId, reason) => {
-    try {
-      await apiClient.reviseQuote(quotationId, reason);
-      setSelectedQuotation(null);
-      fetchCustomerData();
-      showToast('Revision request sent.');
-    } catch (error) {
-      showToast('Failed to send revision request', 'error');
-    }
-  };
-
-  const handleBookingClick = (b) => {
-    if (['QUOTATION_REQUESTED', 'PENDING_QUOTE', 'QUOTE_PROVIDED', 'NEGOTIATING', 'ACCEPTED', 'REJECTED'].includes(b.status)) {
-      const quote = quotations.find(q => q.booking_id === b.booking_id || q.booking_ref === b.booking_ref);
-      if (quote) {
-        setSelectedQuotation(quote);
-        return;
-      }
-    }
-    setSelectedFlyoutId(b.booking_id);
-  };
+  useEffect(() => {
+    if (!isEquipDropdownOpen) return;
+    const handleOutsideClick = () => setIsEquipDropdownOpen(false);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [isEquipDropdownOpen]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -373,7 +372,7 @@ export default function CustomerPortal() {
                         key={b.booking_id}
                         className="cp-booking-card"
                         variants={cardEntrance}
-                        onClick={() => handleBookingClick(b)}
+                        onClick={() => setSelectedFlyoutId(b.booking_id)}
                         style={{ cursor: 'pointer' }}
                         whileHover={{ scale: 1.01 }}
                       >
@@ -479,7 +478,13 @@ export default function CustomerPortal() {
                         Request Another Quote
                       </button>
                     </div>
-                  ) : !showQuoteForm ? (
+                  ) : showQuoteForm ? (
+                    <ProgressiveQuoteForm 
+                      equipment={equipment} 
+                      onCancel={() => setShowQuoteForm(false)} 
+                      onSubmitSuccess={() => { setShowQuoteForm(false); setQuoteSuccess(true); }} 
+                    />
+                  ) : (
                     <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <MessageSquare size={48} style={{ marginBottom: 'var(--space-3)', color: 'var(--brass)' }} />
                       <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }}>Request a Quotation</h2>
@@ -750,15 +755,6 @@ export default function CustomerPortal() {
 
       {/* ── AI Chat Widget ─────────────────────────────────────────────────── */}
       <ChatWidget />
-      {selectedQuotation && (
-        <QuotationReviewModal 
-          quotation={selectedQuotation} 
-          onClose={() => setSelectedQuotation(null)}
-          onAccept={handleAcceptQuote}
-          onReject={handleRejectQuote}
-          onRevise={handleReviseQuote}
-        />
-      )}
     </div>
   );
 }
