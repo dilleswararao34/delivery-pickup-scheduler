@@ -310,11 +310,15 @@ export default function PublicCatalog() {
                       onClick={() => setSelectedItemForModal(item)}
                       style={{ cursor: 'pointer' }}
                     >
-                      {/* Image stub with gradient and icon */}
+                      {/* Image or stub with gradient and icon */}
                       <div className="item-card-image-stub">
-                        <div className="item-stub-gradient">
-                          <CategoryIcon category={item.category} size={44} />
-                        </div>
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.name} className="item-stub-image" />
+                        ) : (
+                          <div className="item-stub-gradient">
+                            <CategoryIcon category={item.category} size={44} />
+                          </div>
+                        )}
                         {/* Status badge */}
                         <span className={`item-badge item-badge--${isAvailable ? 'available' : 'unavailable'}`}>
                           {isAvailable ? '● Available' : '● Unavailable'}

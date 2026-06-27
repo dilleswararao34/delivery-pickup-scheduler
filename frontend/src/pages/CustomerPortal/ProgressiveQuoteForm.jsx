@@ -76,7 +76,11 @@ export default function ProgressiveQuoteForm({ equipment, onClose, onSubmit, isS
                         className={`pqf-eq-card ${isSelected ? 'selected' : ''}`}
                         onClick={() => handleToggleEquip(eq.id || eq.equipment_id)}
                       >
-                        <div className="eq-icon">{eq.category.substring(0, 1)}</div>
+                        {eq.image_url ? (
+                          <img src={eq.image_url} alt={eq.name} className="eq-icon-img" />
+                        ) : (
+                          <div className="eq-icon">{eq.category.substring(0, 1)}</div>
+                        )}
                         <div className="eq-info">
                           <h4>{eq.name}</h4>
                           <p>₹{parseFloat(eq.rental_rate_per_day).toLocaleString('en-IN')}/day</p>
