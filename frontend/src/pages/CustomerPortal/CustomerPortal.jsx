@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { pageTransition, cardEntrance, staggerContainer, buttonTap } from '../../utils/motionVariants.js';
 import apiClient from '../../services/apiClient.js';
 import { formatDate, getDurationDays, formatCurrency } from '../../utils/dateFormat.js';
+import ProgressiveQuoteForm from './ProgressiveQuoteForm.jsx';
 import './CustomerPortal.css';
 
 const EQUIPMENT_ICONS = {
@@ -115,10 +116,10 @@ export default function CustomerPortal() {
     if (location.state?.preselect) {
       setQuoteEquip([location.state.preselect]);
       setShowQuoteForm(true);
-      // Clear state so it doesn't re-trigger on subsequent renders
-      window.history.replaceState({}, document.title);
+      // Clear state safely using React Router so we don't break history
+      navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state]);
+  }, [location.state, location.pathname, navigate]);
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
