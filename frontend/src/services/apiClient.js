@@ -209,6 +209,10 @@ const apiClient = {
     return http.post('/payments/create-order', { type, id });
   },
 
+  async verifyRazorpayPayment(payload) {
+    return http.post('/payments/verify-payment', payload);
+  },
+
   async refundDeposit(depositId, reason) {
     return http.post(`/payments/deposits/${depositId}/refund`, { reason });
   },

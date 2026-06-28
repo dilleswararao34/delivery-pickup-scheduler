@@ -52,20 +52,33 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
         description: type === 'invoice' ? `Rental Payment ${item.invoice_ref}` : `Security Deposit Hold`,
         order_id: order_id,
         handler: async function (response) {
-          if (!isAdmin) {
-            navigate('/customer/payment-success', { 
-              state: { 
-                bookingRef: booking.reference_id, 
-                amountPaid: amount / 100, 
-                paymentMethod: 'RAZORPAY' 
-              } 
+          try {
+            await apiClient.verifyRazorpayPayment({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              type: type,
+              item_id: item.id
             });
-          } else {
-            alert('Payment authorized successfully! We are updating the status.');
-            await refresh();
-            if (onStatusUpdate) {
-              await onStatusUpdate();
+
+            if (!isAdmin) {
+              navigate('/customer/payment-success', { 
+                state: { 
+                  bookingRef: booking.reference_id, 
+                  amountPaid: amount / 100, 
+                  paymentMethod: 'RAZORPAY' 
+                } 
+              });
+            } else {
+              alert('Payment verified & processed successfully!');
+              await refresh();
+              if (onStatusUpdate) {
+                await onStatusUpdate();
+              }
             }
+          } catch (err) {
+            console.error(err);
+            alert(`Payment verification failed: ${err.response?.data?.error?.message || err.message}`);
           }
         },
         prefill: {

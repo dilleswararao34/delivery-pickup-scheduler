@@ -168,7 +168,7 @@ async function webhook(req, res, next) {
   const event = req.body;
   console.log(`[PaymentsWebhook] Received valid signature event: ${event.event}`);
 
-  if (event.event === 'payment.captured') {
+  if (event.event === 'payment.captured' || event.event === 'order.paid') {
     const payment = event.payload.payment.entity;
     const orderId = payment.order_id;
     const paymentId = payment.id;
@@ -483,9 +483,137 @@ async function markDepositHeld(req, res, next) {
   }
 }
 
+async function verifyPayment(req, res, next) {
+  const { razorpay_payment_id, razorpay_order_id, razorpay_signature, type, item_id } = req.body;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || 'placeholder_key_secret';
+
+  // Verify the signature
+  const bodyToSign = razorpay_order_id + '|' + razorpay_payment_id;
+  const expectedSignature = crypto
+    .createHmac('sha256', keySecret)
+    .update(bodyToSign)
+    .digest('hex');
+
+  if (expectedSignature !== razorpay_signature) {
+    const err = new Error('Invalid signature verification');
+    err.statusCode = 400;
+    err.code = 'INVALID_PAYMENT_SIGNATURE';
+    return next(err);
+  }
+
+  try {
+    if (type === 'invoice') {
+      const invRes = await db.query(
+        `SELECT i.*, c.name AS customer_name, c.email AS customer_email, b.booking_ref, b.id AS booking_id, b.status AS booking_status
+         FROM invoices i
+         JOIN bookings b ON i.booking_id = b.id
+         JOIN customers c ON b.customer_id = c.id
+         WHERE i.id = $1 AND i.razorpay_order_id = $2`,
+        [item_id, razorpay_order_id]
+      );
+
+      if (!invRes.rows.length) {
+        const err = new Error('Invoice not found');
+        err.statusCode = 404;
+        return next(err);
+      }
+
+      const invoice = invRes.rows[0];
+      if (invoice.status !== 'PAID') {
+        await db.query(
+          `UPDATE invoices
+           SET status = 'PAID', amount_paid = amount_due, razorpay_payment_id = $1, razorpay_signature = $2, updated_at = NOW()
+           WHERE id = $3`,
+          [razorpay_payment_id, razorpay_signature, invoice.id]
+        );
+
+        // Trigger email notification
+        const mockBooking = {
+          booking_ref: invoice.booking_ref,
+          customer_name: invoice.customer_name,
+          customer_email: invoice.customer_email
+        };
+        await notificationsService.sendPaymentConfirmation(mockBooking, {
+          invoice_ref: invoice.invoice_ref,
+          amount_paid: invoice.amount_due
+        });
+
+        // Log action
+        const activityLogService = require('../services/activityLog.service');
+        await activityLogService.logAction({
+          userId: req.user.userId,
+          userName: req.user.name,
+          userEmail: req.user.email,
+          action: 'VERIFY_PAYMENT',
+          entityType: 'INVOICE',
+          entityId: invoice.id,
+          details: `Verified payment ${razorpay_payment_id} for Invoice ${invoice.invoice_ref}`
+        });
+
+        // Re-evaluate rules
+        await ruleEngine.processBookingRules(invoice.booking_id);
+
+        // Auto-confirm
+        await checkAndAutoConfirmBooking(invoice.booking_id);
+      }
+      
+      return res.status(200).json({ success: true, message: 'Invoice payment verified and updated successfully' });
+    } else if (type === 'deposit') {
+      const depRes = await db.query(
+        `SELECT d.*, b.id AS booking_id, b.booking_ref
+         FROM deposits d
+         JOIN bookings b ON d.booking_id = b.id
+         WHERE d.id = $1 AND d.razorpay_order_id = $2`,
+        [item_id, razorpay_order_id]
+      );
+
+      if (!depRes.rows.length) {
+        const err = new Error('Deposit not found');
+        err.statusCode = 404;
+        return next(err);
+      }
+
+      const deposit = depRes.rows[0];
+      if (deposit.status !== 'HELD') {
+        await db.query(
+          `UPDATE deposits
+           SET status = 'HELD', razorpay_payment_id = $1, payment_method = 'RAZORPAY', held_at = NOW(), updated_at = NOW()
+           WHERE id = $2`,
+          [razorpay_payment_id, deposit.id]
+        );
+
+        // Log action
+        const activityLogService = require('../services/activityLog.service');
+        await activityLogService.logAction({
+          userId: req.user.userId,
+          userName: req.user.name,
+          userEmail: req.user.email,
+          action: 'VERIFY_PAYMENT',
+          entityType: 'DEPOSIT',
+          entityId: deposit.id,
+          details: `Verified payment ${razorpay_payment_id} for Deposit on booking ${deposit.booking_ref}`
+        });
+
+        // Re-evaluate rules
+        await ruleEngine.processBookingRules(deposit.booking_id);
+
+        // Auto-confirm
+        await checkAndAutoConfirmBooking(deposit.booking_id);
+      }
+
+      return res.status(200).json({ success: true, message: 'Deposit payment verified and updated successfully' });
+    }
+
+    return res.status(400).json({ success: false, error: 'Invalid payment type' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createOrder,
   webhook,
+  verifyPayment,
   refundDeposit,
   selectCODPayment,
   markInvoicePaid,

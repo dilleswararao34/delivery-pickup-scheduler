@@ -12,6 +12,9 @@ router.post('/webhook', paymentsController.webhook);
 // Protected endpoint to generate Razorpay orders
 router.post('/create-order', authMiddleware, paymentsController.createOrder);
 
+// Protected endpoint to verify Razorpay payment signatures on the fly
+router.post('/verify-payment', authMiddleware, paymentsController.verifyPayment);
+
 // Customer option to choose COD payment method
 router.post('/select-cod', authMiddleware, paymentsController.selectCODPayment);
 
