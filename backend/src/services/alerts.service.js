@@ -57,7 +57,7 @@ async function checkEquipmentConflict(equipmentIds, deliveryDate, returnDate, ex
       JOIN equipment e ON be.equipment_id = e.id
       WHERE be.equipment_id = $1
         AND b.is_deleted = FALSE
-        AND b.status NOT IN ('ARCHIVED', 'PICKED_UP_AND_RETURNED')
+        AND b.status IN ('CONFIRMED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'AWAITING_PICKUP')
         AND b.scheduled_delivery_date < $3
         AND b.scheduled_return_date   > $2
         ${excludeBookingId ? 'AND b.id != $4' : ''}
@@ -89,7 +89,7 @@ async function checkConflictsAndLock(client, equipmentIds, deliveryDate, returnD
     JOIN equipment e ON be.equipment_id = e.id
     WHERE be.equipment_id = ANY($1)
       AND b.is_deleted = FALSE
-      AND b.status NOT IN ('ARCHIVED')
+      AND b.status IN ('CONFIRMED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'AWAITING_PICKUP')
       AND b.scheduled_delivery_date < $3
       AND b.scheduled_return_date > $2
       ${excludeBookingId ? 'AND b.id != $4' : ''}
