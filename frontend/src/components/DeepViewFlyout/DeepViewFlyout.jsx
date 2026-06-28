@@ -272,7 +272,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
       await onStatusUpdate(bookingId, {
         new_status: toStatus,
         changed_by: user?.name || 'System Operator',
-        reason: getTransitionLabel(toStatus),
+        reason: getTransitionLabel(toStatus, booking?.status),
       });
       await refresh();
     } catch (err) {
@@ -1019,7 +1019,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                         {transitioning && status === 'CONFIRMED'
                           ? <Loader2 size={12} className="animate-spin" style={{ display: 'inline', verticalAlign: 'middle' }} />
                           : <ArrowRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />}
-                        {' '}{getTransitionLabel(status)}
+                        {' '}{getTransitionLabel(status, booking.status)}
                         {title && !transitioning ? ` (${title})` : ''}
                       </button>
                     );
