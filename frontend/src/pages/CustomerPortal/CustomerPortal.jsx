@@ -15,7 +15,6 @@ import { pageTransition, cardEntrance, staggerContainer, buttonTap } from '../..
 import apiClient from '../../services/apiClient.js';
 import { formatDate, getDurationDays, formatCurrency } from '../../utils/dateFormat.js';
 import ProgressiveQuoteForm from './ProgressiveQuoteForm.jsx';
-import CustomerQuotationsTab from './CustomerQuotationsTab.jsx';
 import './CustomerPortal.css';
 
 const EQUIPMENT_ICONS = {
@@ -37,7 +36,6 @@ export default function CustomerPortal() {
 
   const getTabFromPath = (path) => {
     if (path.endsWith('/browse')) return 'browse';
-    if (path.endsWith('/quotations')) return 'quotations';
     if (path.endsWith('/quote')) return 'quote';
     if (path.endsWith('/returns')) return 'returns';
     if (path.endsWith('/profile')) return 'profile';
@@ -425,12 +423,7 @@ export default function CustomerPortal() {
               </motion.div>
             )}
 
-            {/* ── My Quotations ────────────────────────────────────────── */}
-            {activeTab === 'quotations' && (
-              <motion.div key="quotations" variants={pageTransition} initial="initial" animate="animate" exit="exit">
-                <CustomerQuotationsTab />
-              </motion.div>
-            )}
+
 
             {/* ── Browse Equipment ─────────────────────────────────────── */}
             {activeTab === 'browse' && (

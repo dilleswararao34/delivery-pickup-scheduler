@@ -38,6 +38,70 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
   const [payingId, setPayingId] = useState(null);
   const [refundingId, setRefundingId] = useState(null);
 
+  // Quotation states & handlers
+  const [quotation, setQuotation] = useState(null);
+  const [revisionNotes, setRevisionNotes] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchQuotation = useCallback(async () => {
+    if (!bookingId) return;
+    try {
+      const res = await apiClient.getQuotations();
+      const q = res.data?.find(item => item.booking_id === bookingId);
+      setQuotation(q || null);
+    } catch (err) {
+      console.error('Failed to fetch quotation for flyout:', err);
+    }
+  }, [bookingId]);
+
+  useEffect(() => {
+    fetchQuotation();
+  }, [fetchQuotation]);
+
+  const handleAcceptQuote = async () => {
+    if (!quotation) return;
+    const latestVersion = quotation.versions?.[quotation.versions.length - 1];
+    if (!latestVersion) return;
+
+    const confirm = window.confirm("Are you sure you want to accept this quote? This will convert it into a confirmed booking invoice.");
+    if (!confirm) return;
+
+    setActionLoading(true);
+    try {
+      await apiClient.acceptQuote(quotation.id, latestVersion.id);
+      alert("Quote accepted! A formal invoice has been generated.");
+      await refresh();
+      await fetchQuotation();
+      if (onStatusUpdate) await onStatusUpdate();
+    } catch (err) {
+      alert(err.message || "Failed to accept quote.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRequestRevision = async () => {
+    if (!quotation) return;
+    if (!revisionNotes.trim()) {
+      alert("Please provide notes for the revision request.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await apiClient.requestRevision(quotation.id, revisionNotes);
+      alert("Revision requested successfully. Our team will review and get back to you.");
+      setRevisionNotes('');
+      await refresh();
+      await fetchQuotation();
+      if (onStatusUpdate) await onStatusUpdate();
+    } catch (err) {
+      alert(err.message || "Failed to request revision.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handlePay = async (type, item) => {
     setPayingId(item.id);
     try {
@@ -424,6 +488,102 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Quotation Negotiation Section */}
+              {booking.status === 'QUOTATION_REQUESTED' && (
+                <div className="flyout-section" style={{ borderLeft: '4px solid var(--accent)', paddingLeft: 'var(--space-3)' }}>
+                  <div className="flyout-section__title" style={{ color: 'var(--accent)' }}>Quotation & Price Negotiation</div>
+                  
+                  {!quotation ? (
+                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                      Loading quotation details...
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="rule-card" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600 }}>QUOTE STATUS</span>
+                          <span className={`status-badge status-badge--${quotation.status.toLowerCase()}`} style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px' }}>
+                            {quotation.status.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+
+                        {quotation.versions && quotation.versions.length > 0 && (() => {
+                          const latest = quotation.versions[quotation.versions.length - 1];
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                                <div>
+                                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Current Price Offer:</div>
+                                  <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    {formatCurrency(latest.quote_amount)}
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+                                  Version {latest.version_number} · {new Date(latest.created_at).toLocaleDateString()}
+                                </div>
+                              </div>
+
+                              {latest.discount_reason && (
+                                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--green)', fontWeight: 600 }}>
+                                  Discount Applied: {latest.discount_reason}
+                                </div>
+                              )}
+
+                              {latest.notes_from_admin && (
+                                <div style={{ marginTop: 'var(--space-2)', padding: 'var(--space-2) var(--space-3)', background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', borderLeft: '2px solid var(--border-active)' }}>
+                                  <strong>Admin Message:</strong> "{latest.notes_from_admin}"
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Customer Actions */}
+                      {user?.role === 'CUSTOMER' && quotation.status === 'QUOTE_PROVIDED' && (
+                        <div style={{ marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                          <button
+                            className="btn btn-primary"
+                            onClick={handleAcceptQuote}
+                            disabled={actionLoading}
+                            style={{ width: '100%', padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
+                          >
+                            {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                            Accept Quote & Proceed to Invoice
+                          </button>
+
+                          <div style={{ borderTop: '1px solid var(--border)', marginTop: 'var(--space-2)', paddingTop: 'var(--space-3)' }}>
+                            <div className="flyout-info-label" style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>Request another counter-offer/revision:</div>
+                            <textarea
+                              placeholder="Type your message or discount request here..."
+                              value={revisionNotes}
+                              onChange={(e) => setRevisionNotes(e.target.value)}
+                              rows="3"
+                              style={{ width: '100%', padding: '8px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', border: '1px solid var(--border)', resize: 'vertical', color: 'var(--text-primary)' }}
+                            />
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={handleRequestRevision}
+                              disabled={actionLoading || !revisionNotes.trim()}
+                              style={{ marginTop: 'var(--space-2)', width: '100%', fontSize: 'var(--text-xs)' }}
+                            >
+                              Submit Revision Request
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {user?.role === 'CUSTOMER' && quotation.status === 'PENDING_QUOTE' && (
+                        <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Clock size={16} style={{ color: 'var(--amber)' }} />
+                          <span>Waiting for SD Digitals Admin to review and provide revised pricing. You will receive an email once updated.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
