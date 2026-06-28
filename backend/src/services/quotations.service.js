@@ -9,7 +9,7 @@ const notificationsService = require('./notifications.service');
  */
 async function listQuotations(filters = {}) {
   let query = `
-    SELECT qr.*, 
+    SELECT qr.*, qr.requested_at AS created_at, 
            c.name AS customer_name, c.email AS customer_email, c.company AS customer_company,
            b.booking_ref
     FROM quotation_requests qr
@@ -50,7 +50,7 @@ async function listQuotations(filters = {}) {
  */
 async function getQuotationById(id) {
   const qRes = await db.query(`
-    SELECT qr.*, 
+    SELECT qr.*, qr.requested_at AS created_at, 
            c.name AS customer_name, c.email AS customer_email, c.company AS customer_company, c.phone AS customer_phone,
            b.booking_ref, b.status AS booking_status
     FROM quotation_requests qr
