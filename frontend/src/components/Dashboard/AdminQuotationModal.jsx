@@ -63,8 +63,8 @@ export default function AdminQuotationModal({ quotation, onClose }) {
               <div className="aqm-info-box">
                 <p><strong>Customer:</strong> {quotation.customer_name}</p>
                 <p><strong>Contact:</strong> {quotation.customer_phone}</p>
-                <p><strong>Delivery:</strong> {new Date(quotation.delivery_date).toLocaleString()}</p>
-                <p><strong>Return:</strong> {new Date(quotation.return_date).toLocaleString()}</p>
+                <p><strong>Delivery:</strong> {new Date(quotation.scheduled_delivery_date).toLocaleString()}</p>
+                <p><strong>Return:</strong> {new Date(quotation.scheduled_return_date).toLocaleString()}</p>
                 {quotation.notes_from_customer && (
                   <div className="aqm-note">
                     <strong>Customer Note:</strong> {quotation.notes_from_customer}
