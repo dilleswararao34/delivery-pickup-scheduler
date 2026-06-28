@@ -201,7 +201,8 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
       await refresh();
       if (onStatusUpdate) await onStatusUpdate();
     } catch (err) {
-      alert(`Failed: ${err.message}`);
+      const errorMsg = err.response?.data?.error?.message || err.response?.data?.error || err.message;
+      alert(`Failed: ${errorMsg}`);
     }
   };
 
@@ -214,7 +215,8 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
       await refresh();
       if (onStatusUpdate) await onStatusUpdate();
     } catch (err) {
-      alert(`Failed: ${err.message}`);
+      const errorMsg = err.response?.data?.error?.message || err.response?.data?.error || err.message;
+      alert(`Failed: ${errorMsg}`);
     }
   };
 
