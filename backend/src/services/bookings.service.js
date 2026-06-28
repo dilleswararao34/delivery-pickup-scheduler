@@ -286,6 +286,20 @@ async function createBooking(payload) {
 
     await client.query('COMMIT');
 
+    // Fetch full booking details for notifications
+    let fullBooking;
+    try {
+      fullBooking = await getBookingById(booking.id);
+      const notificationsService = require('./notifications.service');
+      if (status === 'QUOTATION_REQUESTED') {
+        await notificationsService.sendQuoteAcknowledgement(fullBooking);
+      } else if (status === 'CONFIRMED') {
+        await notificationsService.sendConfirmation(fullBooking);
+      }
+    } catch (err) {
+      console.error('[BookingsService] Notification dispatch failed:', err.message);
+    }
+
     // Fetch equipment names for response
     const eqRes = await db.query(
       'SELECT id, name, serial_number FROM equipment WHERE id = ANY($1)',

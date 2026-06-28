@@ -14,6 +14,7 @@
     "build:frontend": "npm run build --workspace=frontend"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "concurrently": "^8.2.2"
   }
 }

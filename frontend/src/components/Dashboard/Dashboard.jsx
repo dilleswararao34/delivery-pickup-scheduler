@@ -494,7 +494,14 @@ export default function Dashboard() {
       </motion.div>
 
       {/* ── Main body ──────────────────────────────────────────────────────────── */}
-      <main className="dashboard__body" role="main" style={{ display: (currentView === 'logistics' || currentView === 'intake') ? 'flex' : 'block' }}>
+      <main 
+        className="dashboard__body" 
+        role="main" 
+        style={{ 
+          display: (currentView === 'logistics' || currentView === 'intake') ? 'flex' : 'block',
+          overflowY: (currentView === 'logistics' || currentView === 'intake') ? 'hidden' : 'auto'
+        }}
+      >
         {currentView === 'equipment' && (
           <div className="card animate-in" style={{ padding: 'var(--space-6)', background: 'var(--bg-secondary)', width: '100%', minHeight: '400px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-6)' }}>

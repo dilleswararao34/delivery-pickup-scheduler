@@ -107,17 +107,17 @@ app.listen(PORT, () => {
 
   // Run a one-off background sync to set image URLs in production DB
   const db = require('./src/config/db');
-  db.query(`UPDATE equipment SET image_url = '/images/sony_fx3.png' WHERE name = 'Sony FX3 Cinema Rig' AND image_url IS NULL;`)
+  db.query(`UPDATE equipment SET image_url = '/images/sony_fx3.png' WHERE name = 'Sony FX3 Cinema Rig' AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '/images/%');`)
     .catch(e => console.error(e));
-  db.query(`UPDATE equipment SET image_url = '/images/dji_ronin.png' WHERE name = 'DJI Ronin RS3 Pro Gimbal' AND image_url IS NULL;`)
+  db.query(`UPDATE equipment SET image_url = '/images/dji_ronin.png' WHERE name = 'DJI Ronin RS3 Pro Gimbal' AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '/images/%');`)
     .catch(e => console.error(e));
-  db.query(`UPDATE equipment SET image_url = '/images/aputure_light.png' WHERE name = 'Aputure 600d Light Storm' AND image_url IS NULL;`)
+  db.query(`UPDATE equipment SET image_url = '/images/aputure_light.png' WHERE name = 'Aputure 600d Light Storm' AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '/images/%');`)
     .catch(e => console.error(e));
-  db.query(`UPDATE equipment SET image_url = '/images/blackmagic_camera.png' WHERE name = 'Blackmagic Pocket Cinema Camera 6K G2' AND image_url IS NULL;`)
+  db.query(`UPDATE equipment SET image_url = '/images/blackmagic_camera.png' WHERE name = 'Blackmagic Pocket Cinema Camera 6K G2' AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '/images/%');`)
     .catch(e => console.error(e));
-  db.query(`UPDATE equipment SET image_url = '/images/rode_mic.png' WHERE name = 'Rode NTG5 Shotgun Microphone Kit' AND image_url IS NULL;`)
+  db.query(`UPDATE equipment SET image_url = '/images/rode_mic.png' WHERE name = 'Rode NTG5 Shotgun Microphone Kit' AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '/images/%');`)
     .catch(e => console.error(e));
-  db.query(`UPDATE equipment SET image_url = '/images/dji_drone.png' WHERE name = 'DJI Mavic 3 Enterprise Drone Kit' AND image_url IS NULL;`)
+  db.query(`UPDATE equipment SET image_url = '/images/dji_drone.png' WHERE name = 'DJI Mavic 3 Enterprise Drone Kit' AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '/images/%');`)
     .catch(e => console.error(e));
 });
 

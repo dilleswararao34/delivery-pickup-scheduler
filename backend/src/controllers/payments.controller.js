@@ -487,6 +487,8 @@ async function verifyPayment(req, res, next) {
   const { razorpay_payment_id, razorpay_order_id, razorpay_signature, type, item_id } = req.body;
   const keySecret = process.env.RAZORPAY_KEY_SECRET || 'placeholder_key_secret';
 
+  console.log(`[PaymentsVerify] Verifying signature for ${type} id ${item_id}. Order: ${razorpay_order_id}, Payment: ${razorpay_payment_id}`);
+
   // Verify the signature
   const bodyToSign = razorpay_order_id + '|' + razorpay_payment_id;
   const expectedSignature = crypto
@@ -495,6 +497,11 @@ async function verifyPayment(req, res, next) {
     .digest('hex');
 
   if (expectedSignature !== razorpay_signature) {
+    console.error(`[PaymentsVerify] Signature mismatch!`);
+    console.error(`  Expected: ${expectedSignature}`);
+    console.error(`  Received: ${razorpay_signature}`);
+    console.error(`  Signed Body: ${bodyToSign}`);
+    console.error(`  Key Secret Length: ${keySecret.length}`);
     const err = new Error('Invalid signature verification');
     err.statusCode = 400;
     err.code = 'INVALID_PAYMENT_SIGNATURE';

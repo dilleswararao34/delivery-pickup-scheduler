@@ -4,10 +4,16 @@ import { X, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import './ProgressiveQuoteForm.css';
 
 export default function ProgressiveQuoteForm({ equipment, onClose, onSubmit, isSubmitting, initialSelectedEquip = [], initialDeliveryDate = '', initialReturnDate = '' }) {
+  const formatForDatetimeLocal = (dateStr) => {
+    if (!dateStr) return '';
+    if (dateStr.includes('T')) return dateStr.substring(0, 16);
+    return `${dateStr}T09:00`; // default to 9:00 AM
+  };
+
   const [step, setStep] = useState(initialDeliveryDate && initialReturnDate ? 2 : 1);
   const [selectedEquip, setSelectedEquip] = useState(initialSelectedEquip);
-  const [deliveryDate, setDeliveryDate] = useState(initialDeliveryDate);
-  const [returnDate, setReturnDate] = useState(initialReturnDate);
+  const [deliveryDate, setDeliveryDate] = useState(formatForDatetimeLocal(initialDeliveryDate));
+  const [returnDate, setReturnDate] = useState(formatForDatetimeLocal(initialReturnDate));
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   
