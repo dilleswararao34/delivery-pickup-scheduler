@@ -332,6 +332,36 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
     }
   };
 
+  const handleCustomerCancel = async () => {
+    const hoursDiff = (new Date(booking.scheduled_delivery_date) - new Date()) / (1000 * 60 * 60);
+    let targetStatus = 'ARCHIVED';
+    let confirmMsg = 'Are you sure you want to cancel this booking?';
+    
+    if (hoursDiff <= 24) {
+      targetStatus = 'CANCELLATION_REQUESTED';
+      confirmMsg = 'Since delivery is scheduled within 24 hours, this will submit a Cancellation Request to the Admin for review. Proceed?';
+    }
+
+    const confirm = window.confirm(confirmMsg);
+    if (!confirm) return;
+
+    setTransitioning(true);
+    try {
+      await apiClient.updateBookingStatus(bookingId, {
+        new_status: targetStatus,
+        changed_by: user?.name || 'Customer',
+        reason: targetStatus === 'ARCHIVED' ? 'Customer cancelled booking (immediate)' : 'Customer requested cancellation (within 24h)',
+      });
+      alert(targetStatus === 'ARCHIVED' ? 'Booking cancelled successfully.' : 'Cancellation request submitted to Admin.');
+      await refresh();
+      if (onStatusUpdate) await onStatusUpdate();
+    } catch (err) {
+      alert(`Failed to cancel booking: ${err.message}`);
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
   const allowedNext = booking ? getAllowedNext(booking.status) : [];
   const hireDays = booking ? getDurationDays(booking.scheduled_delivery_date, booking.scheduled_return_date) : null;
 
@@ -994,6 +1024,22 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+            )}
+            {/* Customer Cancellation (Customers only) */}
+            {!isAdmin && ['DRAFT', 'QUOTATION_REQUESTED', 'CONFIRMED'].includes(booking.status) && (
+              <div className="flyout__footer">
+                <div className="flyout__footer-label">Booking Actions</div>
+                <div className="flyout__transition-btns">
+                  <button
+                    className="transition-btn transition-btn--danger"
+                    onClick={handleCustomerCancel}
+                    disabled={transitioning}
+                    style={{ backgroundColor: 'var(--red)', color: 'white' }}
+                  >
+                    {transitioning ? 'Processing...' : 'Cancel Booking'}
+                  </button>
                 </div>
               </div>
             )}
