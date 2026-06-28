@@ -256,6 +256,17 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
   }, [onClose]);
 
   const handleTransition = useCallback(async (toStatus) => {
+    if (toStatus === 'CONFIRMED') {
+      const hasUnpaidInvoice = booking?.invoices?.some(inv => inv.status !== 'PAID' && inv.payment_method !== 'COD');
+      const hasPendingDeposit = booking?.deposits?.some(dep => dep.status !== 'HELD');
+      if (hasUnpaidInvoice || hasPendingDeposit) {
+        let reasons = [];
+        if (hasUnpaidInvoice) reasons.push('• The rent invoice has not been paid.');
+        if (hasPendingDeposit) reasons.push('• The security deposit is still pending (must be HELD).');
+        alert(`Cannot Confirm Booking:\n\n${reasons.join('\n')}\n\nPlease mark the invoice as PAID (or set to COD) and mark the deposit as HELD in the Financial Ledger above.`);
+        return;
+      }
+    }
     setTransitioning(true);
     try {
       await onStatusUpdate(bookingId, {
@@ -269,7 +280,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
     } finally {
       setTransitioning(false);
     }
-  }, [bookingId, getTransitionLabel, onStatusUpdate, refresh, user]);
+  }, [bookingId, getTransitionLabel, onStatusUpdate, refresh, user, booking]);
 
   const [downloadingInvoice, setDownloadingInvoice] = useState({});
 
@@ -962,7 +973,6 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                       const hasUnpaidInvoice = booking.invoices?.some(inv => inv.status !== 'PAID' && inv.payment_method !== 'COD');
                       const hasPendingDeposit = booking.deposits?.some(dep => dep.status !== 'HELD');
                       if (hasUnpaidInvoice || hasPendingDeposit) {
-                        isDisabled = true;
                         title = 'Awaiting Payment / Deposit';
                       }
                     }
@@ -980,7 +990,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
                           ? <Loader2 size={12} className="animate-spin" style={{ display: 'inline', verticalAlign: 'middle' }} />
                           : <ArrowRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />}
                         {' '}{getTransitionLabel(status)}
-                        {isDisabled && !transitioning && title ? ` (${title})` : ''}
+                        {title && !transitioning ? ` (${title})` : ''}
                       </button>
                     );
                   })}
