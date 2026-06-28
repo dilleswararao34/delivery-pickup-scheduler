@@ -428,6 +428,48 @@ async function migrate() {
       );
       console.log(`[migrate] ✅ Seeded main admin: ${email}`);
     }
+
+    // ── Step 5: Heal any orphaned QUOTATION_REQUESTED bookings ───────────────
+    const orphanedRes = await client.query(
+      `SELECT b.id, b.customer_id, b.scheduled_delivery_date, b.scheduled_return_date, b.notes 
+       FROM bookings b 
+       LEFT JOIN quotation_requests qr ON qr.booking_id = b.id 
+       WHERE b.status = 'QUOTATION_REQUESTED' AND qr.id IS NULL`
+    );
+
+    for (const b of orphanedRes.rows) {
+      const eqRes = await client.query('SELECT equipment_id FROM booking_equipment WHERE booking_id = $1', [b.id]);
+      const equipmentIds = eqRes.rows.map(r => r.equipment_id);
+
+      if (equipmentIds.length > 0) {
+        const eqRatesRes = await client.query('SELECT SUM(rental_rate_per_day) as total_rate FROM equipment WHERE id = ANY($1)', [equipmentIds]);
+        const dailyRate = parseFloat(eqRatesRes.rows[0].total_rate || 0);
+        const days = Math.ceil((new Date(b.scheduled_return_date) - new Date(b.scheduled_delivery_date)) / (1000 * 60 * 60 * 24));
+        const initialAmount = dailyRate * (days || 1);
+
+        const insertQrRes = await client.query(
+          `INSERT INTO quotation_requests (booking_id, customer_id, equipment_ids, scheduled_delivery_date, scheduled_return_date, initial_amount, notes_from_customer, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING_QUOTE')
+           RETURNING id`,
+          [b.id, b.customer_id, JSON.stringify(equipmentIds), b.scheduled_delivery_date, b.scheduled_return_date, initialAmount, b.notes || null]
+        );
+        const quotationId = insertQrRes.rows[0].id;
+
+        const breakdown = {
+          equipment_cost: initialAmount,
+          delivery_fee: 500,
+          insurance: 0,
+          total: initialAmount + 500
+        };
+
+        await client.query(
+          `INSERT INTO quotation_versions (quotation_request_id, version_number, quote_amount, breakdown, created_by)
+           VALUES ($1, 1, $2, $3, 'SYSTEM')`,
+          [quotationId, breakdown.total, JSON.stringify(breakdown)]
+        );
+        console.log(`[migrate] ✅ Healed quotation stubs for booking ${b.id}`);
+      }
+    }
   } catch (err) {
     console.error('[migrate] ❌ Migration failed:', err.message);
     process.exit(1);

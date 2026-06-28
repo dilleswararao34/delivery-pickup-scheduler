@@ -255,6 +255,49 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
 
     // Run rules evaluation to ensure everything (invoices/deposits/alerts) updates in sync
     const ruleEngine = require('./ruleEngine.service');
+
+    if (toStatus === 'QUOTATION_REQUESTED') {
+      const qrRes = await client.query('SELECT id FROM quotation_requests WHERE booking_id = $1', [bookingId]);
+      if (!qrRes.rows.length) {
+        const bDetailsRes = await client.query(
+          `SELECT customer_id, scheduled_delivery_date, scheduled_return_date, notes 
+           FROM bookings WHERE id = $1`,
+          [bookingId]
+        );
+        const bDetails = bDetailsRes.rows[0];
+        const eqRes = await client.query('SELECT equipment_id FROM booking_equipment WHERE booking_id = $1', [bookingId]);
+        const equipmentIds = eqRes.rows.map(r => r.equipment_id);
+
+        if (bDetails && equipmentIds.length > 0) {
+          const eqRatesRes = await client.query('SELECT SUM(rental_rate_per_day) as total_rate FROM equipment WHERE id = ANY($1)', [equipmentIds]);
+          const dailyRate = parseFloat(eqRatesRes.rows[0].total_rate || 0);
+          const days = Math.ceil((new Date(bDetails.scheduled_return_date) - new Date(bDetails.scheduled_delivery_date)) / (1000 * 60 * 60 * 24));
+          const initialAmount = dailyRate * (days || 1);
+
+          const insertQrRes = await client.query(
+            `INSERT INTO quotation_requests (booking_id, customer_id, equipment_ids, scheduled_delivery_date, scheduled_return_date, initial_amount, notes_from_customer, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING_QUOTE')
+             RETURNING id`,
+            [bookingId, bDetails.customer_id, JSON.stringify(equipmentIds), bDetails.scheduled_delivery_date, bDetails.scheduled_return_date, initialAmount, bDetails.notes || null]
+          );
+          const quotationId = insertQrRes.rows[0].id;
+
+          const breakdown = {
+            equipment_cost: initialAmount,
+            delivery_fee: 500,
+            insurance: 0,
+            total: initialAmount + 500
+          };
+
+          await client.query(
+            `INSERT INTO quotation_versions (quotation_request_id, version_number, quote_amount, breakdown, created_by)
+             VALUES ($1, 1, $2, $3, 'SYSTEM')`,
+            [quotationId, breakdown.total, JSON.stringify(breakdown)]
+          );
+        }
+      }
+    }
+
     await ruleEngine.processBookingRules(bookingId, client);
 
     await client.query('COMMIT');
