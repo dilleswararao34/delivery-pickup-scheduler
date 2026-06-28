@@ -67,7 +67,17 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({
     success: true,
-    data: { status: 'healthy', service: 'sd-digitals-scheduler-api', version: '1.0.0' },
+    data: { 
+      status: 'healthy', 
+      service: 'sd-digitals-scheduler-api', 
+      version: '1.0.0',
+      smtp: {
+        configured: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD),
+        host: process.env.SMTP_HOST || null,
+        user: process.env.SMTP_USER || null,
+        from: process.env.SMTP_FROM || null
+      }
+    },
     meta: { timestamp: new Date().toISOString() },
     error: null,
   });
