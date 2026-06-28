@@ -225,6 +225,14 @@ const apiClient = {
     return http.post(`/payments/invoices/${invoiceId}/mark-paid`);
   },
 
+  async markInvoicePaid(invoiceId) {
+    return http.post(`/payments/invoices/${invoiceId}/mark-paid`);
+  },
+
+  async markDepositHeld(depositId) {
+    return http.post(`/payments/deposits/${depositId}/mark-held`);
+  },
+
   // ── Quotations ────────────────────────────────────────────────────────────
   async getQuotations(params = {}) {
     return http.get('/quotations', { params });
