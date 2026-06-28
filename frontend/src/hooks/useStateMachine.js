@@ -20,6 +20,7 @@ export function useStateMachine() {
       PICKED_UP_AND_RETURNED: 'Confirm Returned',
       ARCHIVED:               'Archive Booking',
       DRAFT:                  'Revert to Draft',
+      CANCELLATION_REQUESTED: 'Request Cancellation',
     };
     return labels[to] || to;
   }, []);

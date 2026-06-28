@@ -65,6 +65,14 @@ export const STATUS_CONFIG = {
     dot:    '#c4c0b8',
     icon:   '▣',
   },
+  CANCELLATION_REQUESTED: {
+    label: 'Cancellation Requested',
+    bg:     '#fef2f2',
+    color:  '#991b1b',
+    border: '#fee2e2',
+    dot:    '#ef4444',
+    icon:   '✖',
+  },
 };
 
 export const PRIORITY_CONFIG = {
@@ -83,12 +91,13 @@ export const EQUIPMENT_STATUS_CONFIG = {
 };
 
 export const ALLOWED_TRANSITIONS = {
-  DRAFT:                  ['QUOTATION_REQUESTED', 'ARCHIVED'],
-  QUOTATION_REQUESTED:    ['CONFIRMED', 'DRAFT', 'ARCHIVED'],
-  CONFIRMED:              ['OUT_FOR_DELIVERY', 'ARCHIVED'],
+  DRAFT:                  ['QUOTATION_REQUESTED', 'ARCHIVED', 'CANCELLATION_REQUESTED'],
+  QUOTATION_REQUESTED:    ['CONFIRMED', 'DRAFT', 'ARCHIVED', 'CANCELLATION_REQUESTED'],
+  CONFIRMED:              ['OUT_FOR_DELIVERY', 'ARCHIVED', 'CANCELLATION_REQUESTED'],
   OUT_FOR_DELIVERY:       ['DELIVERED'],
   DELIVERED:              ['AWAITING_PICKUP'],
   AWAITING_PICKUP:        ['PICKED_UP_AND_RETURNED'],
   PICKED_UP_AND_RETURNED: ['ARCHIVED'],
+  CANCELLATION_REQUESTED: ['ARCHIVED', 'CONFIRMED', 'DRAFT'],
   ARCHIVED:               [],
 };
