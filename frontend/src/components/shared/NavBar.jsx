@@ -66,6 +66,7 @@ export default function NavBar({ alertCount = 0 }) {
   } else {
     links = [
       { to: '/customer',          label: 'My Bookings',   icon: <BookOpen size={18} />, end: true },
+      { to: '/customer/quotations',label: 'My Quotations', icon: <FileText size={18} /> },
       { to: '/customer/browse',   label: 'Browse Gear',   icon: <Camera size={18} /> },
       { to: '/customer/quote',    label: 'Request Quote', icon: <MessageSquare size={18} /> },
       { to: '/customer/returns',  label: 'Return Log',    icon: <RotateCcw size={18} /> },

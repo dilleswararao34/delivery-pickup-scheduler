@@ -15,6 +15,7 @@ import { pageTransition, cardEntrance, staggerContainer, buttonTap } from '../..
 import apiClient from '../../services/apiClient.js';
 import { formatDate, getDurationDays, formatCurrency } from '../../utils/dateFormat.js';
 import ProgressiveQuoteForm from './ProgressiveQuoteForm.jsx';
+import CustomerQuotationsTab from './CustomerQuotationsTab.jsx';
 import './CustomerPortal.css';
 
 const EQUIPMENT_ICONS = {
@@ -36,6 +37,7 @@ export default function CustomerPortal() {
 
   const getTabFromPath = (path) => {
     if (path.endsWith('/browse')) return 'browse';
+    if (path.endsWith('/quotations')) return 'quotations';
     if (path.endsWith('/quote')) return 'quote';
     if (path.endsWith('/returns')) return 'returns';
     if (path.endsWith('/profile')) return 'profile';
@@ -70,13 +72,25 @@ export default function CustomerPortal() {
   // Quote Form State
   const [showQuoteForm, setShowQuoteForm] = useState(false);
   const [quoteEquip, setQuoteEquip] = useState([]);
-  const [quoteDelivery, setQuoteDelivery] = useState('');
-  const [quoteReturn, setQuoteReturn] = useState('');
+  const [initialQuoteStartDate, setInitialQuoteStartDate] = useState('');
+  const [initialQuoteEndDate, setInitialQuoteEndDate] = useState('');
   const [quoteAddress, setQuoteAddress] = useState(() => (user?.billing_address || ''));
   const [quoteNotes, setQuoteNotes] = useState('');
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [quoteSuccess, setQuoteSuccess] = useState(false);
   const [isEquipDropdownOpen, setIsEquipDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (location.pathname === '/customer/quote' && location.state?.preselect) {
+      setQuoteEquip([location.state.preselect]);
+      if (location.state.startDate) setInitialQuoteStartDate(location.state.startDate);
+      if (location.state.endDate) setInitialQuoteEndDate(location.state.endDate);
+      setShowQuoteForm(true);
+      
+      // Clear state so it doesn't re-trigger on refresh
+      navigate('/customer/quote', { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   // Return Form State
   const [showReturnForm, setShowReturnForm] = useState(false);
@@ -115,6 +129,8 @@ export default function CustomerPortal() {
   useEffect(() => {
     if (location.state?.preselect) {
       setQuoteEquip([location.state.preselect]);
+      if (location.state.startDate) setInitialQuoteStartDate(location.state.startDate);
+      if (location.state.endDate) setInitialQuoteEndDate(location.state.endDate);
       setShowQuoteForm(true);
       // Clear state safely using React Router so we don't break history
       navigate(location.pathname, { replace: true, state: {} });
@@ -224,9 +240,12 @@ export default function CustomerPortal() {
 
       setQuoteSuccess(true);
       setShowQuoteForm(false);
+      setActiveTab('bookings'); // Auto navigate to bookings tab
 
       // Clear form
       setQuoteEquip([]);
+      setInitialQuoteStartDate('');
+      setInitialQuoteEndDate('');
 
       // Refresh customer bookings
       const updated = await apiClient.getBookings();
@@ -406,6 +425,13 @@ export default function CustomerPortal() {
               </motion.div>
             )}
 
+            {/* ── My Quotations ────────────────────────────────────────── */}
+            {activeTab === 'quotations' && (
+              <motion.div key="quotations" variants={pageTransition} initial="initial" animate="animate" exit="exit">
+                <CustomerQuotationsTab />
+              </motion.div>
+            )}
+
             {/* ── Browse Equipment ─────────────────────────────────────── */}
             {activeTab === 'browse' && (
               <motion.div key="browse" variants={pageTransition} initial="initial" animate="animate" exit="exit">
@@ -491,10 +517,38 @@ export default function CustomerPortal() {
                     <ProgressiveQuoteForm 
                       equipment={equipment}
                       initialSelectedEquip={quoteEquip}
+                      initialDeliveryDate={initialQuoteStartDate}
+                      initialReturnDate={initialQuoteEndDate}
                       isSubmitting={quoteSubmitting}
                       onClose={() => setShowQuoteForm(false)} 
                       onSubmit={handleQuoteSubmit} 
                     />
+                  ) : quoteSuccess ? (
+                    <motion.div 
+                      className="quote-success-view"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                    >
+                      <div style={{ textAlign: 'center', padding: '40px', background: 'var(--color-paper)', borderRadius: '12px', border: '1px solid #eaeaea' }}>
+                        <div style={{ color: 'var(--color-brass)', marginBottom: '20px' }}>
+                          <CheckCircle2 size={64} style={{ margin: '0 auto' }}/>
+                        </div>
+                        <h2 style={{ fontSize: '1.5rem', marginBottom: '10px' }}>Quote Request Sent! ✓</h2>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>
+                          We'll send you a quote within 2 hours.<br/>
+                          Track your request in My Bookings.
+                        </p>
+                        <button 
+                          className="btn-primary" 
+                          onClick={() => {
+                            setQuoteSuccess(false);
+                            setActiveTab('bookings');
+                          }}
+                        >
+                          Go to My Bookings
+                        </button>
+                      </div>
+                    </motion.div>
                   ) : (
                     <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <MessageSquare size={48} style={{ marginBottom: 'var(--space-3)', color: 'var(--brass)' }} />

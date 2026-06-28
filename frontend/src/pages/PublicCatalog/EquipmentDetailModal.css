@@ -214,6 +214,22 @@
   color: var(--color-brass);
 }
 
+.eq-modal-dates-box {
+  background: var(--color-paper);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #eaeaea;
+  margin-bottom: 16px;
+}
+
+.eq-date-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
 .eq-modal-actions {
   margin-top: auto;
   padding-top: 1.5rem;

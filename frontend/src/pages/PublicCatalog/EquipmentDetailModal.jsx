@@ -1,16 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle, ShieldCheck, MapPin } from 'lucide-react';
+import { X, CheckCircle, ShieldCheck, MapPin, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import './EquipmentDetailModal.css';
 
 export default function EquipmentDetailModal({ item, onClose }) {
   const navigate = useNavigate();
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  
   if (!item) return null;
 
   const isAvailable = item.status === 'AVAILABLE';
+  const hasDates = startDate && endDate;
 
-  const handleQuoteRequest = () => {
+  const handleRequestQuoteForDates = () => {
+    navigate('/customer/quote', { state: { preselect: item.id, startDate, endDate } });
+  };
+
+  const handleAddToQuote = () => {
+    // Basic implementation that just routes for now, can be expanded to a context cart later
     navigate('/customer/quote', { state: { preselect: item.id } });
   };
 
@@ -67,6 +76,22 @@ export default function EquipmentDetailModal({ item, onClose }) {
               <div className="eq-modal-desc">
                 {item.description || 'Professional cinema equipment maintained to the highest standards. Regularly serviced and tested before every dispatch.'}
               </div>
+              
+              {isAvailable && (
+                <div className="eq-modal-dates-box">
+                  <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: 'var(--color-ink)' }}><Calendar size={16} style={{ verticalAlign: 'middle', marginRight: 6 }}/> Select Dates</h4>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '4px' }}>Start Date</label>
+                      <input type="date" className="eq-date-input" value={startDate} onChange={e => setStartDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', marginBottom: '4px' }}>End Date</label>
+                      <input type="date" className="eq-date-input" value={endDate} onChange={e => setEndDate(e.target.value)} min={startDate || new Date().toISOString().split('T')[0]} />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="eq-modal-specs">
                 <h3>Technical Specifications</h3>
@@ -85,12 +110,22 @@ export default function EquipmentDetailModal({ item, onClose }) {
 
               <div className="eq-modal-actions">
                 <button 
-                  className={`btn-primary ${!isAvailable ? 'btn-disabled' : ''}`}
-                  onClick={handleQuoteRequest}
-                  disabled={!isAvailable}
+                  className={`btn-primary ${(!isAvailable || !hasDates) ? 'btn-disabled' : ''}`}
+                  onClick={handleRequestQuoteForDates}
+                  disabled={!isAvailable || !hasDates}
+                  style={{ width: '100%', marginBottom: '10px' }}
                 >
-                  {isAvailable ? 'Request Quotation' : 'Join Waitlist'}
+                  {isAvailable ? 'Request Quote for These Dates' : 'Join Waitlist'}
                 </button>
+                {isAvailable && (
+                  <button 
+                    className="btn-secondary"
+                    onClick={handleAddToQuote}
+                    style={{ width: '100%' }}
+                  >
+                    Add to Quote Request
+                  </button>
+                )}
               </div>
             </div>
           </div>

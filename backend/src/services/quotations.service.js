@@ -168,20 +168,17 @@ async function acceptQuote(quotationId, versionId, customerEmail) {
       WHERE id = $1
     `, [quotationId]);
 
-    // Update booking status to CONFIRMED
-    await client.query(`
-      UPDATE bookings
-      SET status = 'CONFIRMED', updated_at = NOW()
-      WHERE id = $1
-    `, [quotation.booking_id]);
-
-    // Log the transition
+    // Do NOT automatically update booking status to CONFIRMED here.
+    // The transition to CONFIRMED will happen either via Razorpay Webhook (when invoice is PAID)
+    // or manually by Admin (if COD).
+    
+    // Log the quotation acceptance
     await client.query(`
       INSERT INTO booking_status_history (booking_id, from_status, to_status, changed_by, reason)
       VALUES ($1, $2, $3, $4, $5)
     `, [
-      quotation.booking_id, quotation.booking_status, 'CONFIRMED', quotation.customer_name,
-      'Customer accepted quotation version ' + version.version_number
+      quotation.booking_id, quotation.booking_status, quotation.booking_status, quotation.customer_name,
+      'Customer accepted quotation version ' + version.version_number + '. Awaiting payment.'
     ]);
 
     // Update invoice amount

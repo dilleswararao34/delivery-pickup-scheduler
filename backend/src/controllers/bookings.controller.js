@@ -123,8 +123,10 @@ async function updateStatus(req, res, next) {
           err.code = 'CANCELLATION_RESTRICTED';
           return next(err);
         }
+      } else if (new_status === 'QUOTATION_REQUESTED' && booking.status === 'DRAFT') {
+        // Allow customer to submit quotation requests
       } else {
-        const err = new Error('Customers are only authorized to cancel bookings or submit cancellation requests.');
+        const err = new Error('Customers are only authorized to cancel bookings, or submit quotation requests.');
         err.statusCode = 403;
         err.code = 'FORBIDDEN_TRANSITION';
         return next(err);

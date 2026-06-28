@@ -10,6 +10,7 @@ import TermsOfService from './pages/InfoPages/TermsOfService.jsx';
 import PrivacyPolicy from './pages/InfoPages/PrivacyPolicy.jsx';
 import Dashboard from './components/Dashboard/Dashboard.jsx';
 import CustomerPortal from './pages/CustomerPortal/CustomerPortal.jsx';
+import PaymentSuccessView from './pages/CustomerPortal/PaymentSuccessView.jsx';
 
 // ── Animated route wrapper ────────────────────────────────────────────────────
 function AnimatedRoutes() {
@@ -63,6 +64,14 @@ function AnimatedRoutes() {
           element={
             <ProtectedRoute role="CUSTOMER">
               <CustomerPortal />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/customer/payment-success"
+          element={
+            <ProtectedRoute role="CUSTOMER">
+              <PaymentSuccessView />
             </ProtectedRoute>
           }
         />

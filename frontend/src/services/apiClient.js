@@ -221,6 +221,23 @@ const apiClient = {
     return http.post(`/payments/invoices/${invoiceId}/mark-paid`);
   },
 
+  // ── Quotations ────────────────────────────────────────────────────────────
+  async getQuotations(params = {}) {
+    return http.get('/quotations', { params });
+  },
+
+  async getQuotation(id) {
+    return http.get(`/quotations/${id}`);
+  },
+
+  async requestRevision(id, notes) {
+    return http.post(`/quotations/${id}/revise`, { notes });
+  },
+
+  async acceptQuote(id, versionId) {
+    return http.post(`/quotations/${id}/accept`, { versionId });
+  },
+
   // ── AI Chatbot ────────────────────────────────────────────────────────────
   // messages: [{ role: 'user'|'model', content: string }]
   async sendChatMessage(messages) {

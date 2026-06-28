@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { formatDate, formatDateTime, getDurationDays, formatCurrency } from '../../utils/dateFormat.js';
 import { flyoutSlide, backdropFade, buttonTap } from '../../utils/motionVariants.js';
 import apiClient from '../../services/apiClient.js';
+import { useNavigate } from 'react-router-dom';
 import './DeepViewFlyout.css';
 
 export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
@@ -22,6 +23,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
   const { getAllowedNext, getTransitionLabel } = useStateMachine();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const navigate = useNavigate();
 
   const [transitioning, setTransitioning] = useState(false);
 
@@ -50,10 +52,20 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
         description: type === 'invoice' ? `Rental Payment ${item.invoice_ref}` : `Security Deposit Hold`,
         order_id: order_id,
         handler: async function (response) {
-          alert('Payment authorized successfully! We are updating the status.');
-          await refresh();
-          if (onStatusUpdate) {
-            await onStatusUpdate();
+          if (!isAdmin) {
+            navigate('/customer/payment-success', { 
+              state: { 
+                bookingRef: booking.reference_id, 
+                amountPaid: amount / 100, 
+                paymentMethod: 'RAZORPAY' 
+              } 
+            });
+          } else {
+            alert('Payment authorized successfully! We are updating the status.');
+            await refresh();
+            if (onStatusUpdate) {
+              await onStatusUpdate();
+            }
           }
         },
         prefill: {
@@ -767,20 +779,36 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
               <div className="flyout__footer">
                 <div className="flyout__footer-label">Advance Workflow</div>
                 <div className="flyout__transition-btns">
-                  {allowedNext.map((status) => (
-                    <button
-                      key={status}
-                      id={`transition-btn-${status}`}
-                      className="transition-btn"
-                      onClick={() => handleTransition(status)}
-                      disabled={transitioning}
-                    >
-                      {transitioning
-                        ? <Loader2 size={12} className="animate-spin" style={{ display: 'inline', verticalAlign: 'middle' }} />
-                        : <ArrowRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />}
-                      {' '}{getTransitionLabel(status)}
-                    </button>
-                  ))}
+                  {allowedNext.map((status) => {
+                    let isDisabled = transitioning;
+                    let title = '';
+                    
+                    if (status === 'CONFIRMED') {
+                      const hasUnpaidInvoice = booking.invoices?.some(inv => inv.status !== 'PAID' && inv.payment_method !== 'COD');
+                      const hasPendingDeposit = booking.deposits?.some(dep => dep.status !== 'HELD');
+                      if (hasUnpaidInvoice || hasPendingDeposit) {
+                        isDisabled = true;
+                        title = 'Awaiting Payment / Deposit';
+                      }
+                    }
+                    
+                    return (
+                      <button
+                        key={status}
+                        id={`transition-btn-${status}`}
+                        className="transition-btn"
+                        onClick={() => handleTransition(status)}
+                        disabled={isDisabled}
+                        title={title}
+                      >
+                        {transitioning && status === 'CONFIRMED'
+                          ? <Loader2 size={12} className="animate-spin" style={{ display: 'inline', verticalAlign: 'middle' }} />
+                          : <ArrowRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />}
+                        {' '}{getTransitionLabel(status)}
+                        {isDisabled && !transitioning && title ? ` (${title})` : ''}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

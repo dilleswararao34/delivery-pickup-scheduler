@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import './ProgressiveQuoteForm.css';
 
-export default function ProgressiveQuoteForm({ equipment, onClose, onSubmit, isSubmitting, initialSelectedEquip = [] }) {
-  const [step, setStep] = useState(1);
+export default function ProgressiveQuoteForm({ equipment, onClose, onSubmit, isSubmitting, initialSelectedEquip = [], initialDeliveryDate = '', initialReturnDate = '' }) {
+  const [step, setStep] = useState(initialDeliveryDate && initialReturnDate ? 2 : 1);
   const [selectedEquip, setSelectedEquip] = useState(initialSelectedEquip);
-  const [deliveryDate, setDeliveryDate] = useState('');
-  const [returnDate, setReturnDate] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState(initialDeliveryDate);
+  const [returnDate, setReturnDate] = useState(initialReturnDate);
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   

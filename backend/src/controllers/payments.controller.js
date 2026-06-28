@@ -154,12 +154,14 @@ async function webhook(req, res, next) {
   }
 
   // Validate the signature using HMAC SHA256 against raw request body
+  const bodyToSign = req.rawBody || JSON.stringify(req.body);
   const shasum = crypto.createHmac('sha256', webhookSecret);
-  shasum.update(req.rawBody || JSON.stringify(req.body));
+  shasum.update(bodyToSign);
   const digest = shasum.digest('hex');
 
   if (digest !== signature) {
-    console.warn('[PaymentsWebhook] Signature mismatch. Access denied.');
+    console.error(`[PaymentsWebhook] Signature mismatch. Expected: ${digest}, Received: ${signature}`);
+    console.error(`[PaymentsWebhook] Ensure RAZORPAY_WEBHOOK_SECRET in your .env matches the Razorpay Dashboard exactly.`);
     return res.status(401).json({ success: false, error: 'Invalid signature validation' });
   }
 

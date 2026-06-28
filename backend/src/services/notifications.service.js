@@ -98,6 +98,28 @@ class NotificationService {
   }
 
   /**
+   * Send payment received confirmation
+   */
+  async sendPaymentConfirmation(booking, invoice) {
+    const subject = `SD Digitals - Payment Received: ${booking.booking_ref}`;
+    const content = `Hi ${booking.customer.name || booking.customer_name}, we have received your payment of ₹${invoice.amount_paid} for booking ${booking.booking_ref} (Invoice: ${invoice.invoice_ref}). Your invoice is now paid!`;
+    
+    await this.logDispatch('email', 'PAYMENT_RECEIVED', booking.customer.email || booking.customer_email, subject, content);
+    await this.logDispatch('whatsapp', 'PAYMENT_RECEIVED', booking.customer.phone || booking.customer_phone, null, `*PAYMENT RECEIVED:* ₹${invoice.amount_paid} received for booking ${booking.booking_ref}.`);
+  }
+
+  /**
+   * Send delivery notification
+   */
+  async sendDeliveryNotification(booking) {
+    const subject = `SD Digitals - Equipment Delivered: ${booking.booking_ref}`;
+    const content = `Hi ${booking.customer.name}, your equipment for booking ${booking.booking_ref} has been successfully delivered. Have a great shoot!`;
+    
+    await this.logDispatch('email', 'EQUIPMENT_DELIVERED', booking.customer.email, subject, content);
+    await this.logDispatch('whatsapp', 'EQUIPMENT_DELIVERED', booking.customer.phone, null, `*DELIVERED:* Equipment for booking ${booking.booking_ref} is delivered.`);
+  }
+
+  /**
    * Send delivery/pickup/return reminders
    */
   async sendReminder(booking, type = 'DELIVERY_REMINDER') {
