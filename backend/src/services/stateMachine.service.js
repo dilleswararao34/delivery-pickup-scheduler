@@ -13,7 +13,7 @@ const ALLOWED_TRANSITIONS = {
   AWAITING_PICKUP:        ['PICKED_UP_AND_RETURNED'],
   PICKED_UP_AND_RETURNED: ['ARCHIVED'],
   CANCELLATION_REQUESTED: ['ARCHIVED', 'CONFIRMED', 'DRAFT'],
-  ARCHIVED:               [],
+  ARCHIVED:               ['DRAFT'],
 };
 
 // ─── Transition guards ────────────────────────────────────────────────────────
