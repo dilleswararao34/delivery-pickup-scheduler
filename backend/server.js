@@ -141,6 +141,12 @@ app.get('/test-razorpay', async (req, res) => {
   }
 });
 
+// ─── Notification Logs Diagnostic ──────────────────────────────────────────
+app.get('/test-logs', (req, res) => {
+  const notificationsService = require('./src/services/notifications.service');
+  res.json({ success: true, logs: notificationsService.logs });
+});
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/v1/auth',      authRouter);
 app.use('/api/v1/chat',      chatRouter);
