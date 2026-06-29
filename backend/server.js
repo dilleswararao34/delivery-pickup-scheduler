@@ -187,9 +187,9 @@ app.listen(PORT, () => {
     .catch(e => console.error(e));
   db.query(`UPDATE equipment SET image_url = '/images/dji_drone.png' WHERE name = 'DJI Mavic 3 Enterprise Drone Kit' AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '/images/%');`)
     .catch(e => console.error(e));
-  db.query(`UPDATE equipment SET image_url = '/images/dji_ronin.png' WHERE name = 'Zhiyun WEEBILL-3S Gimbal' AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '/images/%');`)
+  db.query(`UPDATE equipment SET image_url = '/images/zhiyun_weebill.png' WHERE name = 'Zhiyun WEEBILL-3S Gimbal';`)
     .catch(e => console.error(e));
-  db.query(`UPDATE equipment SET image_url = '/images/aputure_light.png' WHERE name = 'Aputure NOVA P120c RGBWW Panel' AND (image_url IS NULL OR image_url = '' OR image_url NOT LIKE '/images/%');`)
+  db.query(`UPDATE equipment SET image_url = '/images/aputure_nova.png' WHERE name = 'Aputure NOVA P120c RGBWW Panel';`)
     .catch(e => console.error(e));
 });
 
