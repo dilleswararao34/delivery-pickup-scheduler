@@ -79,10 +79,17 @@ class NotificationService {
   async sendQuoteAcknowledgement(booking) {
     const subject = `SD Digitals - Quotation Request Received: ${booking.booking_ref}`;
     const gearList = booking.equipment.map(e => e.name).join(', ');
-    const content = `Hi ${booking.customer.name}, we have received your quotation request for the following camera equipment: ${gearList}.\nAn operator will review the availability and send over the finalized quote/invoice shortly.`;
+    const customerName = booking.customer?.name || booking.customer_name || 'Customer';
+    const emailRecipient = booking.customer?.email || booking.customer_email;
+    const phoneRecipient = booking.customer?.phone || booking.customer_phone;
+    const content = `Hi ${customerName}, we have received your quotation request for the following camera equipment: ${gearList}.\nAn operator will review the availability and send over the finalized quote/invoice shortly.`;
     
-    await this.logDispatch('email', 'QUOTE_REQUESTED', booking.customer.email, subject, content);
-    await this.logDispatch('whatsapp', 'QUOTE_REQUESTED', booking.customer.phone, null, `*QUOTE REQUESTED:* Quotation request logged for booking ${booking.booking_ref}.`);
+    if (emailRecipient) {
+      await this.logDispatch('email', 'QUOTE_REQUESTED', emailRecipient, subject, content);
+    }
+    if (phoneRecipient) {
+      await this.logDispatch('whatsapp', 'QUOTE_REQUESTED', phoneRecipient, null, `*QUOTE REQUESTED:* Quotation request logged for booking ${booking.booking_ref}.`);
+    }
   }
 
   /**
@@ -91,10 +98,17 @@ class NotificationService {
   async sendConfirmation(booking) {
     const subject = `SD Digitals - Rental Confirmation: ${booking.booking_ref}`;
     const gearList = booking.equipment.map(e => e.name).join(', ');
-    const content = `Hi ${booking.customer.name}, your rental of ${gearList} is confirmed! Delivery is scheduled for ${new Date(booking.scheduled_delivery_date).toLocaleDateString('en-IN')}.`;
+    const customerName = booking.customer?.name || booking.customer_name || 'Customer';
+    const emailRecipient = booking.customer?.email || booking.customer_email;
+    const phoneRecipient = booking.customer?.phone || booking.customer_phone;
+    const content = `Hi ${customerName}, your rental of ${gearList} is confirmed! Delivery is scheduled for ${new Date(booking.scheduled_delivery_date).toLocaleDateString('en-IN')}.`;
     
-    await this.logDispatch('email', 'CONFIRMATION', booking.customer.email, subject, content);
-    await this.logDispatch('whatsapp', 'CONFIRMATION', booking.customer.phone, null, `*CONFIRMED:* Booking ${booking.booking_ref} is locked for delivery.`);
+    if (emailRecipient) {
+      await this.logDispatch('email', 'CONFIRMATION', emailRecipient, subject, content);
+    }
+    if (phoneRecipient) {
+      await this.logDispatch('whatsapp', 'CONFIRMATION', phoneRecipient, null, `*CONFIRMED:* Booking ${booking.booking_ref} is locked for delivery.`);
+    }
   }
 
   /**
@@ -102,10 +116,17 @@ class NotificationService {
    */
   async sendPaymentConfirmation(booking, invoice) {
     const subject = `SD Digitals - Payment Received: ${booking.booking_ref}`;
-    const content = `Hi ${booking.customer?.name || booking.customer_name}, we have received your payment of ₹${invoice.amount_paid} for booking ${booking.booking_ref} (Invoice: ${invoice.invoice_ref}). Your invoice is now paid!`;
+    const customerName = booking.customer?.name || booking.customer_name || 'Customer';
+    const emailRecipient = booking.customer?.email || booking.customer_email;
+    const phoneRecipient = booking.customer?.phone || booking.customer_phone;
+    const content = `Hi ${customerName}, we have received your payment of ₹${invoice.amount_paid} for booking ${booking.booking_ref} (Invoice: ${invoice.invoice_ref}). Your invoice is now paid!`;
     
-    await this.logDispatch('email', 'PAYMENT_RECEIVED', booking.customer?.email || booking.customer_email, subject, content);
-    await this.logDispatch('whatsapp', 'PAYMENT_RECEIVED', booking.customer?.phone || booking.customer_phone, null, `*PAYMENT RECEIVED:* ₹${invoice.amount_paid} received for booking ${booking.booking_ref}.`);
+    if (emailRecipient) {
+      await this.logDispatch('email', 'PAYMENT_RECEIVED', emailRecipient, subject, content);
+    }
+    if (phoneRecipient) {
+      await this.logDispatch('whatsapp', 'PAYMENT_RECEIVED', phoneRecipient, null, `*PAYMENT RECEIVED:* ₹${invoice.amount_paid} received for booking ${booking.booking_ref}.`);
+    }
   }
 
   /**
@@ -113,10 +134,17 @@ class NotificationService {
    */
   async sendDeliveryNotification(booking) {
     const subject = `SD Digitals - Equipment Delivered: ${booking.booking_ref}`;
-    const content = `Hi ${booking.customer.name}, your equipment for booking ${booking.booking_ref} has been successfully delivered. Have a great shoot!`;
+    const customerName = booking.customer?.name || booking.customer_name || 'Customer';
+    const emailRecipient = booking.customer?.email || booking.customer_email;
+    const phoneRecipient = booking.customer?.phone || booking.customer_phone;
+    const content = `Hi ${customerName}, your equipment for booking ${booking.booking_ref} has been successfully delivered. Have a great shoot!`;
     
-    await this.logDispatch('email', 'EQUIPMENT_DELIVERED', booking.customer.email, subject, content);
-    await this.logDispatch('whatsapp', 'EQUIPMENT_DELIVERED', booking.customer.phone, null, `*DELIVERED:* Equipment for booking ${booking.booking_ref} is delivered.`);
+    if (emailRecipient) {
+      await this.logDispatch('email', 'EQUIPMENT_DELIVERED', emailRecipient, subject, content);
+    }
+    if (phoneRecipient) {
+      await this.logDispatch('whatsapp', 'EQUIPMENT_DELIVERED', phoneRecipient, null, `*DELIVERED:* Equipment for booking ${booking.booking_ref} is delivered.`);
+    }
   }
 
   /**
@@ -151,10 +179,17 @@ class NotificationService {
    */
   async sendFollowUp(booking) {
     const subject = `SD Digitals - Gear Return Acknowledgment: ${booking.booking_ref}`;
-    const content = `Hi ${booking.customer.name}, thank you for choosing SD Digitals! Your returned gear has been received at our depot. Please share your feedback or log any issues.`;
+    const customerName = booking.customer?.name || booking.customer_name || 'Customer';
+    const emailRecipient = booking.customer?.email || booking.customer_email;
+    const phoneRecipient = booking.customer?.phone || booking.customer_phone;
+    const content = `Hi ${customerName}, thank you for choosing SD Digitals! Your returned gear has been received at our depot. Please share your feedback or log any issues.`;
     
-    await this.logDispatch('email', 'FOLLOW_UP', booking.customer.email, subject, content);
-    await this.logDispatch('whatsapp', 'FOLLOW_UP', booking.customer.phone, null, `Thank you for choosing SD Digitals! Booking ${booking.booking_ref} is closed.`);
+    if (emailRecipient) {
+      await this.logDispatch('email', 'FOLLOW_UP', emailRecipient, subject, content);
+    }
+    if (phoneRecipient) {
+      await this.logDispatch('whatsapp', 'FOLLOW_UP', phoneRecipient, null, `Thank you for choosing SD Digitals! Booking ${booking.booking_ref} is closed.`);
+    }
   }
 
   /**
@@ -327,8 +362,13 @@ class NotificationService {
    */
   async sendCancellationRequested(booking) {
     const subject = `SD Digitals - Cancellation Request Received: ${booking.booking_ref}`;
-    const content = `Hi ${booking.customer.name},\n\nWe have received your request to cancel booking ${booking.booking_ref}.\n\nSince your delivery is scheduled within 24 hours, our team will review the request and contact you shortly regarding the confirmation.`;
-    await this.logDispatch('email', 'CANCELLATION_REQUESTED', booking.customer.email, subject, content);
+    const customerName = booking.customer?.name || booking.customer_name || 'Customer';
+    const recipient = booking.customer?.email || booking.customer_email;
+    const content = `Hi ${customerName},\n\nWe have received your request to cancel booking ${booking.booking_ref}.\n\nSince your delivery is scheduled within 24 hours, our team will review the request and contact you shortly regarding the confirmation.`;
+    
+    if (recipient) {
+      await this.logDispatch('email', 'CANCELLATION_REQUESTED', recipient, subject, content);
+    }
   }
 
   /**
@@ -336,8 +376,13 @@ class NotificationService {
    */
   async sendCancellationConfirmed(booking) {
     const subject = `SD Digitals - Cancellation Confirmed: ${booking.booking_ref}`;
-    const content = `Hi ${booking.customer.name},\n\nYour booking ${booking.booking_ref} has been successfully cancelled and archived. Any payments made have been processed for refund to your original payment method.`;
-    await this.logDispatch('email', 'CANCELLATION_CONFIRMED', booking.customer.email, subject, content);
+    const customerName = booking.customer?.name || booking.customer_name || 'Customer';
+    const recipient = booking.customer?.email || booking.customer_email;
+    const content = `Hi ${customerName},\n\nYour booking ${booking.booking_ref} has been successfully cancelled. Any payments made have been processed for refund to your original payment method.`;
+    
+    if (recipient) {
+      await this.logDispatch('email', 'CANCELLATION_CONFIRMED', recipient, subject, content);
+    }
   }
 
   /**
