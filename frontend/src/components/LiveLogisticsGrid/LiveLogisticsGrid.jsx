@@ -18,6 +18,7 @@ const STATUS_FILTERS = [
   { label: 'Delivered',  value: 'DELIVERED' },
   { label: 'Returned',   value: 'PICKED_UP_AND_RETURNED' },
   { label: 'Archived',   value: 'ARCHIVED' },
+  { label: 'Canceled',   value: 'CANCELLED' },
 ];
 
 export default function LiveLogisticsGrid({

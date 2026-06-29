@@ -67,7 +67,8 @@
 }
 
 .tracker-special--cancellation-requested,
-.tracker-special--archived {
+.tracker-special--archived,
+.tracker-special--cancelled {
   border-color: var(--red);
   color: var(--red);
   background: rgba(239, 68, 68, 0.05);

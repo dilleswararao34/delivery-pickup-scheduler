@@ -58,6 +58,7 @@ const VALID_STATUSES = [
   'PICKED_UP_AND_RETURNED',
   'ARCHIVED',
   'CANCELLATION_REQUESTED',
+  'CANCELLED',
 ];
 
 const updateStatusSchema = z.object({

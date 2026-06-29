@@ -5,15 +5,16 @@ const db = require('../config/db');
 // ─── State machine transition map ─────────────────────────────────────────────
 
 const ALLOWED_TRANSITIONS = {
-  DRAFT:                  ['QUOTATION_REQUESTED', 'ARCHIVED', 'CANCELLATION_REQUESTED'],
-  QUOTATION_REQUESTED:    ['CONFIRMED', 'DRAFT', 'ARCHIVED', 'CANCELLATION_REQUESTED'],
-  CONFIRMED:              ['OUT_FOR_DELIVERY', 'ARCHIVED', 'CANCELLATION_REQUESTED'],
+  DRAFT:                  ['QUOTATION_REQUESTED', 'CANCELLED', 'CANCELLATION_REQUESTED'],
+  QUOTATION_REQUESTED:    ['CONFIRMED', 'DRAFT', 'CANCELLED', 'CANCELLATION_REQUESTED'],
+  CONFIRMED:              ['OUT_FOR_DELIVERY', 'CANCELLED', 'CANCELLATION_REQUESTED'],
   OUT_FOR_DELIVERY:       ['DELIVERED'],
   DELIVERED:              ['AWAITING_PICKUP'],
   AWAITING_PICKUP:        ['PICKED_UP_AND_RETURNED'],
   PICKED_UP_AND_RETURNED: ['ARCHIVED'],
-  CANCELLATION_REQUESTED: ['ARCHIVED', 'CONFIRMED', 'DRAFT'],
+  CANCELLATION_REQUESTED: ['CANCELLED', 'CONFIRMED', 'DRAFT'],
   ARCHIVED:               ['DRAFT'],
+  CANCELLED:              ['DRAFT'],
 };
 
 // ─── Transition guards ────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ function applyGuard(toStatus, opsLog, booking) {
   }
 
   // 24-Hour Cancellation Cutoff Logic
-  if (toStatus === 'ARCHIVED' && ['CONFIRMED', 'QUOTATION_REQUESTED'].includes(booking.status)) {
+  if (toStatus === 'CANCELLED' && ['CONFIRMED', 'QUOTATION_REQUESTED'].includes(booking.status)) {
     const now = new Date();
     const deliveryDate = new Date(booking.scheduled_delivery_date);
     const hoursUntilDelivery = (deliveryDate - now) / (1000 * 60 * 60);
@@ -203,7 +204,7 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
         }
       }
     }
-    if (toStatus === 'ARCHIVED') {
+    if (toStatus === 'ARCHIVED' || toStatus === 'CANCELLED') {
       // Release equipment back to AVAILABLE
       await client.query(
         `UPDATE equipment SET status = 'AVAILABLE'
@@ -319,7 +320,7 @@ async function transition(bookingId, toStatus, changedBy, reason, operationsUpda
           await notificationsService.sendQuoteAcknowledgement(fullBooking);
         } else if (toStatus === 'CANCELLATION_REQUESTED') {
           await notificationsService.sendCancellationRequested(fullBooking);
-        } else if (toStatus === 'ARCHIVED') {
+        } else if (toStatus === 'CANCELLED') {
           await notificationsService.sendCancellationConfirmed(fullBooking);
         }
       } catch (err) {

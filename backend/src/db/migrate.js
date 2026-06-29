@@ -20,7 +20,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 DO $$ BEGIN
   CREATE TYPE booking_status AS ENUM (
     'DRAFT','QUOTATION_REQUESTED','CONFIRMED','OUT_FOR_DELIVERY',
-    'DELIVERED','AWAITING_PICKUP','PICKED_UP_AND_RETURNED','ARCHIVED','CANCELLATION_REQUESTED'
+    'DELIVERED','AWAITING_PICKUP','PICKED_UP_AND_RETURNED','ARCHIVED','CANCELLATION_REQUESTED','CANCELLED'
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -372,6 +372,16 @@ async function migrate() {
     if (bookingStatusCheck.rows.length === 0) {
       console.log('[migrate] Adding CANCELLATION_REQUESTED to booking_status enum...');
       await client.query("ALTER TYPE booking_status ADD VALUE 'CANCELLATION_REQUESTED'");
+    }
+
+    // Ensure CANCELLED value is in booking_status
+    const cancelledCheck = await client.query(`
+      SELECT enumlabel FROM pg_enum
+      WHERE enumtypid = 'booking_status'::regtype AND enumlabel = 'CANCELLED'
+    `);
+    if (cancelledCheck.rows.length === 0) {
+      console.log('[migrate] Adding CANCELLED to booking_status enum...');
+      await client.query("ALTER TYPE booking_status ADD VALUE 'CANCELLED'");
     }
     
     // ── Step 3: Apply Razorpay column migrations ──────────────────────────────
