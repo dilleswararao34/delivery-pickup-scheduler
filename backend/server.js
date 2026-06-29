@@ -110,6 +110,37 @@ app.get('/test-email', async (req, res) => {
   }
 });
 
+// ─── Razorpay Diagnostic Test ────────────────────────────────────────────────
+app.get('/test-razorpay', async (req, res) => {
+  const Razorpay = require('razorpay');
+  const key_id = process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder';
+  const key_secret = process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret';
+  
+  console.log(`[test-razorpay] Initializing with key_id: ${key_id}`);
+  const r = new Razorpay({ key_id, key_secret });
+
+  const start = Date.now();
+  try {
+    const order = await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('Razorpay API request timed out (8s)')), 8000);
+      
+      r.orders.create({
+        amount: 100,
+        currency: 'INR',
+        receipt: 'TEST-REC-' + Date.now(),
+        payment_capture: 1
+      }, (err, order) => {
+        clearTimeout(t);
+        if (err) return reject(err);
+        resolve(order);
+      });
+    });
+    res.json({ success: true, duration: `${Date.now() - start}ms`, order });
+  } catch (err) {
+    res.json({ success: false, duration: `${Date.now() - start}ms`, error: err.message });
+  }
+});
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/v1/auth',      authRouter);
 app.use('/api/v1/chat',      chatRouter);
