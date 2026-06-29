@@ -83,6 +83,29 @@ app.get('/health', (req, res) => {
   });
 });
 
+// ─── Email Diagnostic Test ──────────────────────────────────────────────────
+app.get('/test-email', async (req, res) => {
+  const to = req.query.to || 'potnurudilleswararao34@gmail.com';
+  const notificationsService = require('./src/services/notifications.service');
+  
+  if (!notificationsService.transporter) {
+    return res.json({ success: false, error: 'SMTP Transporter not configured' });
+  }
+
+  try {
+    await notificationsService.transporter.sendMail({
+      from: process.env.SMTP_FROM || 'SD Digitals <potnurudilleswararao55@gmail.com>',
+      to,
+      subject: 'SD Digitals - Email Diagnostic Test',
+      text: 'If you are reading this, your SMTP email configurations on Render are 100% working!',
+      html: '<p>If you are reading this, your SMTP email configurations on Render are 100% working!</p>'
+    });
+    res.json({ success: true, message: `Email successfully sent to ${to}` });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/v1/auth',      authRouter);
 app.use('/api/v1/chat',      chatRouter);
