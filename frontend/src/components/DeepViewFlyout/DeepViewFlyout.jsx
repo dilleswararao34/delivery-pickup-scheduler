@@ -26,6 +26,7 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
   const navigate = useNavigate();
 
   const [transitioning, setTransitioning] = useState(false);
+  const [transitionError, setTransitionError] = useState(null);
 
   // Damage Report Form State
   const [showDamageForm, setShowDamageForm] = useState(false);
@@ -261,12 +262,14 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
       const hasPendingDeposit = booking?.deposits?.some(dep => dep.status !== 'HELD');
       if (hasUnpaidInvoice || hasPendingDeposit) {
         let reasons = [];
-        if (hasUnpaidInvoice) reasons.push('• The rent invoice has not been paid.');
-        if (hasPendingDeposit) reasons.push('• The security deposit is still pending (must be HELD).');
-        alert(`Cannot Confirm Booking:\n\n${reasons.join('\n')}\n\nPlease mark the invoice as PAID (or set to COD) and mark the deposit as HELD in the Financial Ledger above.`);
+        if (hasUnpaidInvoice) reasons.push('The rent invoice has not been paid.');
+        if (hasPendingDeposit) reasons.push('The security deposit is still pending (must be HELD).');
+        setTransitionError(`Cannot Confirm Booking: ${reasons.join(' ')} Please mark them correctly in the Financial Ledger.`);
+        setTimeout(() => setTransitionError(null), 7000);
         return;
       }
     }
+    setTransitionError(null);
     setTransitioning(true);
     try {
       await onStatusUpdate(bookingId, {
@@ -993,7 +996,13 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
             {/* Footer — transitions (Admins only) */}
             {isAdmin && allowedNext.length > 0 && (
               <div className="flyout__footer">
-                <div className="flyout__footer-label">Advance Workflow</div>
+                <div className="flyout__footer-label">Admin Actions</div>
+                {transitionError && (
+                  <div className="status-badge" style={{ backgroundColor: '#fef2f2', color: '#991b1b', border: '1px solid #fee2e2', padding: '12px', marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                    <AlertTriangle size={16} style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>{transitionError}</span>
+                  </div>
+                )}
                 <div className="flyout__transition-btns">
                   {allowedNext.map((status) => {
                     let isDisabled = transitioning;

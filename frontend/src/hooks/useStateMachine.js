@@ -10,7 +10,13 @@ export function useStateMachine() {
     return (ALLOWED_TRANSITIONS[from] || []).includes(to);
   }, []);
 
-  const getTransitionLabel = useCallback((to) => {
+  const getTransitionLabel = useCallback((to, currentStatus) => {
+    if (currentStatus === 'CANCELLATION_REQUESTED') {
+      if (to === 'ARCHIVED') return 'Approve Cancellation (Archive)';
+      if (to === 'CONFIRMED') return 'Reject Cancellation (Keep Confirmed)';
+      if (to === 'DRAFT') return 'Reject Cancellation (Revert to Draft)';
+    }
+
     const labels = {
       QUOTATION_REQUESTED:    'Request Quotation',
       CONFIRMED:              'Confirm Booking',
