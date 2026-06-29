@@ -19,34 +19,64 @@ if (typeof dns.setDefaultResultOrder === 'function') {
 class NotificationService {
   constructor() {
     this.logs = [];
+    this.transporter = undefined;
+  }
 
-    // Create SMTP Transporter
+  /**
+   * Initialize transporter on demand and resolve IPv4 address for SMTP host
+   */
+  async getTransporter() {
+    if (this.transporter !== undefined) {
+      return this.transporter;
+    }
+
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASSWORD;
 
     if (smtpHost && smtpUser && smtpPass) {
+      let hostAddress = smtpHost;
+      let tlsOpts = {};
+
+      try {
+        const dns = require('dns').promises;
+        console.log(`[NotificationService] Resolving IPv4 address for ${smtpHost}...`);
+        const addresses = await dns.resolve4(smtpHost);
+        if (addresses && addresses.length > 0) {
+          hostAddress = addresses[0];
+          tlsOpts = { servername: smtpHost };
+          console.log(`[NotificationService] Resolved ${smtpHost} to IPv4: ${hostAddress}`);
+        }
+      } catch (dnsErr) {
+        console.warn(`[NotificationService] DNS IPv4 resolution failed for ${smtpHost}, falling back to hostname:`, dnsErr.message);
+      }
+
       this.transporter = nodemailer.createTransport({
-        host: smtpHost,
+        host: hostAddress,
         port: smtpPort,
-        secure: smtpPort === 465, // true for 465, false for other ports
+        secure: smtpPort === 465,
         auth: {
           user: smtpUser,
           pass: smtpPass,
         },
+        tls: tlsOpts,
+        connectionTimeout: 10000, // 10s connection timeout
       });
-      console.log(`[NotificationService] SMTP Transporter initialized successfully: ${smtpHost}:${smtpPort}`);
+      console.log(`[NotificationService] SMTP Transporter initialized successfully on ${hostAddress}:${smtpPort}`);
     } else {
       console.warn(`[NotificationService] SMTP credentials missing. Email alerts will only be logged to console.`);
       this.transporter = null;
     }
+
+    return this.transporter;
   }
 
   /**
    * Log a notification dispatch event and send email if configured
    */
   async logDispatch(channel, type, recipient, subject, content, htmlContent = null) {
+    const transporter = await this.getTransporter();
     const logEntry = {
       timestamp: new Date().toISOString(),
       channel,
@@ -54,16 +84,16 @@ class NotificationService {
       recipient,
       subject,
       content,
-      status: this.transporter ? 'SENT' : 'SENT_MOCK'
+      status: transporter ? 'SENT' : 'SENT_MOCK'
     };
     this.logs.push(logEntry);
     console.log(`[NotificationService] [${channel.toUpperCase()}] Dispatching ${type} to ${recipient}: "${subject || 'No Subject'}"`);
 
     if (channel === 'email' && recipient) {
       const from = process.env.SMTP_FROM || 'SD Digitals <no-reply@sddigitals.in>';
-      if (this.transporter) {
+      if (transporter) {
         try {
-          await this.transporter.sendMail({
+          await transporter.sendMail({
             from,
             to: recipient,
             subject,

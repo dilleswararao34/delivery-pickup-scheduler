@@ -88,12 +88,13 @@ app.get('/test-email', async (req, res) => {
   const to = req.query.to || 'potnurudilleswararao34@gmail.com';
   const notificationsService = require('./src/services/notifications.service');
   
-  if (!notificationsService.transporter) {
+  const transporter = await notificationsService.getTransporter();
+  if (!transporter) {
     return res.json({ success: false, error: 'SMTP Transporter not configured' });
   }
 
   try {
-    await notificationsService.transporter.sendMail({
+    await transporter.sendMail({
       from: process.env.SMTP_FROM || 'SD Digitals <potnurudilleswararao55@gmail.com>',
       to,
       subject: 'SD Digitals - Email Diagnostic Test',
