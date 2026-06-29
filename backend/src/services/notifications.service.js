@@ -80,6 +80,9 @@ class NotificationService {
     const resendApiKey = process.env.RESEND_API_KEY;
     const transporter = resendApiKey ? null : await this.getTransporter();
     
+    let targetRecipient = recipient;
+    let emailSubject = subject;
+    
     const logEntry = {
       timestamp: new Date().toISOString(),
       channel,
@@ -95,14 +98,27 @@ class NotificationService {
     if (channel === 'email' && recipient) {
       const from = process.env.SMTP_FROM || 'onboarding@resend.dev';
       
+      // Resend Sandbox Limitation Workaround:
+      // In Resend Free Sandbox mode (using onboarding@resend.dev as sender),
+      // emails can only be sent to the verified owner's email address (usually process.env.SMTP_USER).
+      // We automatically redirect customer emails to SMTP_USER so developers can preview them.
+      if (resendApiKey && from.includes('onboarding@resend.dev')) {
+        const adminEmail = process.env.SMTP_USER || 'potnurudilleswararao55@gmail.com';
+        if (targetRecipient.toLowerCase().trim() !== adminEmail.toLowerCase().trim()) {
+          console.log(`[NotificationService] [Resend Sandbox] Redirecting email from ${targetRecipient} to verified admin email ${adminEmail} for preview`);
+          targetRecipient = adminEmail;
+          emailSubject = `[SANDBOX REDIRECT: ${recipient}] ${subject}`;
+        }
+      }
+
       if (resendApiKey) {
         // Send via Resend HTTP API (works on Render Free tier where SMTP ports are blocked)
         try {
           await new Promise((resolve, reject) => {
             const data = JSON.stringify({
               from,
-              to: [recipient],
-              subject,
+              to: [targetRecipient],
+              subject: emailSubject,
               text: content,
               html: htmlContent || `<p>${content}</p>`
             });
@@ -133,23 +149,23 @@ class NotificationService {
             req.write(data);
             req.end();
           });
-          console.log(`[NotificationService] [Resend] Email successfully dispatched to ${recipient}`);
+          console.log(`[NotificationService] [Resend] Email successfully dispatched to ${targetRecipient}`);
         } catch (err) {
-          console.error(`[NotificationService] [Resend] Error dispatching email to ${recipient}:`, err.message);
+          console.error(`[NotificationService] [Resend] Error dispatching email to ${targetRecipient}:`, err.message);
         }
       } else if (transporter) {
         // Fallback to standard SMTP transporter
         try {
           await transporter.sendMail({
             from,
-            to: recipient,
-            subject,
+            to: targetRecipient,
+            subject: emailSubject,
             text: content,
             html: htmlContent || `<p>${content}</p>`
           });
-          console.log(`[NotificationService] [SMTP] Email successfully dispatched to ${recipient}`);
+          console.log(`[NotificationService] [SMTP] Email successfully dispatched to ${targetRecipient}`);
         } catch (err) {
-          console.error(`[NotificationService] [SMTP] Error dispatching email to ${recipient}:`, err.message);
+          console.error(`[NotificationService] [SMTP] Error dispatching email to ${targetRecipient}:`, err.message);
         }
       }
     }
