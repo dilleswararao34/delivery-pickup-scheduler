@@ -3,6 +3,7 @@
 const nodemailer = require('nodemailer');
 const PDFDocument = require('pdfkit');
 const dns = require('dns');
+const https = require('https');
 
 if (typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
@@ -76,7 +77,9 @@ class NotificationService {
    * Log a notification dispatch event and send email if configured
    */
   async logDispatch(channel, type, recipient, subject, content, htmlContent = null) {
-    const transporter = await this.getTransporter();
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const transporter = resendApiKey ? null : await this.getTransporter();
+    
     const logEntry = {
       timestamp: new Date().toISOString(),
       channel,
@@ -84,14 +87,58 @@ class NotificationService {
       recipient,
       subject,
       content,
-      status: transporter ? 'SENT' : 'SENT_MOCK'
+      status: (resendApiKey || transporter) ? 'SENT' : 'SENT_MOCK'
     };
     this.logs.push(logEntry);
     console.log(`[NotificationService] [${channel.toUpperCase()}] Dispatching ${type} to ${recipient}: "${subject || 'No Subject'}"`);
 
     if (channel === 'email' && recipient) {
-      const from = process.env.SMTP_FROM || 'SD Digitals <no-reply@sddigitals.in>';
-      if (transporter) {
+      const from = process.env.SMTP_FROM || 'onboarding@resend.dev';
+      
+      if (resendApiKey) {
+        // Send via Resend HTTP API (works on Render Free tier where SMTP ports are blocked)
+        try {
+          await new Promise((resolve, reject) => {
+            const data = JSON.stringify({
+              from,
+              to: [recipient],
+              subject,
+              text: content,
+              html: htmlContent || `<p>${content}</p>`
+            });
+
+            const req = https.request({
+              hostname: 'api.resend.com',
+              port: 443,
+              path: '/emails',
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${resendApiKey}`,
+                'Content-Length': Buffer.byteLength(data)
+              }
+            }, (res) => {
+              let body = '';
+              res.on('data', (chunk) => body += chunk);
+              res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                  resolve(JSON.parse(body));
+                } else {
+                  reject(new Error(`Resend HTTP ${res.statusCode}: ${body}`));
+                }
+              });
+            });
+
+            req.on('error', reject);
+            req.write(data);
+            req.end();
+          });
+          console.log(`[NotificationService] [Resend] Email successfully dispatched to ${recipient}`);
+        } catch (err) {
+          console.error(`[NotificationService] [Resend] Error dispatching email to ${recipient}:`, err.message);
+        }
+      } else if (transporter) {
+        // Fallback to standard SMTP transporter
         try {
           await transporter.sendMail({
             from,

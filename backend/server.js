@@ -88,20 +88,23 @@ app.get('/test-email', async (req, res) => {
   const to = req.query.to || 'potnurudilleswararao34@gmail.com';
   const notificationsService = require('./src/services/notifications.service');
   
-  const transporter = await notificationsService.getTransporter();
-  if (!transporter) {
-    return res.json({ success: false, error: 'SMTP Transporter not configured' });
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const transporter = resendApiKey ? null : await notificationsService.getTransporter();
+  
+  if (!resendApiKey && !transporter) {
+    return res.json({ success: false, error: 'Neither SMTP Transporter nor Resend API Key is configured.' });
   }
 
   try {
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || 'SD Digitals <potnurudilleswararao55@gmail.com>',
+    await notificationsService.logDispatch(
+      'email',
+      'TEST',
       to,
-      subject: 'SD Digitals - Email Diagnostic Test',
-      text: 'If you are reading this, your SMTP email configurations on Render are 100% working!',
-      html: '<p>If you are reading this, your SMTP email configurations on Render are 100% working!</p>'
-    });
-    res.json({ success: true, message: `Email successfully sent to ${to}` });
+      'SD Digitals - Email Diagnostic Test',
+      'If you are reading this, your email configurations are 100% working!',
+      '<p>If you are reading this, your email configurations are 100% working!</p>'
+    );
+    res.json({ success: true, message: `Email dispatch triggered to ${to}. Check backend server logs or inbox.` });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }
