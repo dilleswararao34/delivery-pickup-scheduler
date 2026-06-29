@@ -365,7 +365,10 @@ export default function DeepViewFlyout({ bookingId, onClose, onStatusUpdate }) {
     }
   };
 
-  const allowedNext = booking ? getAllowedNext(booking.status) : [];
+  const allowedNextRaw = booking ? getAllowedNext(booking.status) : [];
+  const allowedNext = (user?.role === 'ADMIN' || user?.role === 'EMPLOYEE')
+    ? allowedNextRaw.filter(status => status !== 'CANCELLATION_REQUESTED')
+    : allowedNextRaw;
   const hireDays = booking ? getDurationDays(booking.scheduled_delivery_date, booking.scheduled_return_date) : null;
 
   return (
